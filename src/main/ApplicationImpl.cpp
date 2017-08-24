@@ -21,6 +21,7 @@
 #include "invariant/Invariant.h"
 #include "invariant/Invariants.h"
 #include "invariant/TotalCoinsEqualsBalancesPlusFeePool.h"
+#include "invariant/UnknownLedgerVersion.h"
 #include "ledger/LedgerManager.h"
 #include "main/CommandHandler.h"
 #include "main/ExternalQueue.h"
@@ -444,7 +445,7 @@ ApplicationImpl::applyCfgCommands()
 }
 
 Config const&
-ApplicationImpl::getConfig()
+ApplicationImpl::getConfig() const
 {
     return mConfig;
 }
@@ -659,6 +660,7 @@ ApplicationImpl::enabledInvariants() const
         result.push_back(
             make_unique<CacheIsConsistentWithDatabase>(getDatabase()));
     }
+    result.push_back(make_unique<UnknownLedgerVersion>(getConfig()));
     return result;
 }
 }

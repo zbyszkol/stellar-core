@@ -155,7 +155,7 @@ class Application
 
     // Return a reference to the Application-local copy of the Config object
     // that the Application was constructed with.
-    virtual Config const& getConfig() = 0;
+    virtual Config const& getConfig() const = 0;
 
     // Gets the current execution-state of the Application
     // (derived from the state of other modules

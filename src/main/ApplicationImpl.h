@@ -39,7 +39,7 @@ class ApplicationImpl : public Application
 
     virtual uint64_t timeNow() override;
 
-    virtual Config const& getConfig() override;
+    virtual Config const& getConfig() const override;
 
     virtual State getState() const override;
     virtual std::string getStateHuman() const override;
