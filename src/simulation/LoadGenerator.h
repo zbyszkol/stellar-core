@@ -54,6 +54,9 @@ class LoadGenerator
     void scheduleLoadGeneration(Application& app, uint32_t nAccounts,
                                 uint32_t nTxs, uint32_t txRate, bool autoRate);
 
+    void scheduleBenchmarkLoadGeneration(Application& app,
+                                         uint32_t nTxs, uint32_t txRate);
+
     // Generate one "step" worth of load (assuming 1 step per STEP_MSECS) at a
     // given target number of accounts and txs, and a given target tx/s rate.
     // If work remains after the current step, call scheduleLoadGeneration()
@@ -61,11 +64,16 @@ class LoadGenerator
     void generateLoad(Application& app, uint32_t nAccounts, uint32_t nTxs,
                       uint32_t txRate, bool autoRate);
 
+    void generateLoadForBenchmark(Application& app, uint32_t nTxs,
+                                  uint32_t txRate);
+
     bool maybeCreateAccount(uint32_t ledgerNum, std::vector<TxInfo>& txs);
 
     std::vector<TxInfo> accountCreationTransactions(size_t n);
     AccountInfoPtr createAccount(size_t i, uint32_t ledgerNum = 0);
     std::vector<AccountInfoPtr> createAccounts(size_t n);
+    void createAccountsDirectly(Application& app, size_t n);
+
     bool loadAccount(Application& app, AccountInfo& account);
     bool loadAccount(Application& app, AccountInfoPtr account);
     bool loadAccounts(Application& app, std::vector<AccountInfoPtr> accounts);

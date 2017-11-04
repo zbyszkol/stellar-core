@@ -6,6 +6,7 @@
 
 #include "lib/http/server.hpp"
 #include <string>
+#include "medida/timer.h"
 
 /*
 handler functions for the http commands this server supports
@@ -50,5 +51,12 @@ class CommandHandler
     void testAcc(std::string const& params, std::string& retStr);
     void testTx(std::string const& params, std::string& retStr);
     void unban(std::string const& params, std::string& retStr);
+    void createRandomAccounts(std::string const& params, std::string& retStr);
+    void generateLoadForBenchmark(std::string const& params, std::string& retStr);
+
+private:
+    medida::Timer& mTxSubmitted;
+    // medida::Counter& mTxCounter;
+    // medida::Meter& mTxMeter;
 };
 }

@@ -173,6 +173,8 @@ class HerderImpl : public Herder
         medida::Counter& mHerderPendingTxs2;
         medida::Counter& mHerderPendingTxs3;
 
+        medida::Timer& mRecvTransaction;
+
         SCPMetrics(Application& app);
     };
 

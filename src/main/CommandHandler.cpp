@@ -15,6 +15,7 @@
 #include "main/Config.h"
 #include "overlay/BanManager.h"
 #include "overlay/OverlayManager.h"
+#include "simulation/LoadGenerator.h"
 #include "util/Logging.h"
 #include "util/StatusManager.h"
 #include "util/make_unique.h"
@@ -37,7 +38,11 @@ using std::placeholders::_2;
 
 namespace stellar
 {
-CommandHandler::CommandHandler(Application& app) : mApp(app)
+CommandHandler::CommandHandler(Application& app) :
+    mApp(app),
+    mTxSubmitted(app.getMetrics().NewTimer({"benchmark", "submit", "tx", "calls"}))
+    // mTxCounter(app.getMetrics().NewCounter({"benchmark", "counter", "submit", "transaction"})),
+    // mTxMeter(app.getMetrics().NewMeter({"benchmark", "meter", "submit", "transaction"}, "transaction"))
 {
     if (mApp.getConfig().HTTP_PORT)
     {
@@ -104,6 +109,8 @@ CommandHandler::CommandHandler(Application& app) : mApp(app)
                       std::bind(&CommandHandler::testTx, this, _1, _2));
     mServer->addRoute("tx", std::bind(&CommandHandler::tx, this, _1, _2));
     mServer->addRoute("unban", std::bind(&CommandHandler::unban, this, _1, _2));
+    mServer->addRoute("createrandomaccounts", std::bind(&CommandHandler::createRandomAccounts, this, _1, _2));
+    mServer->addRoute("generateloadforbenchmark", std::bind(&CommandHandler::generateLoadForBenchmark, this, _1, _2));
 }
 
 void
@@ -247,6 +254,10 @@ CommandHandler::fileNotFound(std::string const& params, std::string& retStr)
         "</p><p><h1> "
         "/generateload[?accounts=N&txs=M&txrate=(R|auto)]</h1>"
         "artificially generate load for testing; must be used with "
+        "ARTIFICIALLY_GENERATE_LOAD_FOR_TESTING set to true"
+        "</p><p><h1> "
+        "/createrandomaccounts[?accounts=N]</h1>"
+        "artificially generate random accounts for testing; must be use with "
         "ARTIFICIALLY_GENERATE_LOAD_FOR_TESTING set to true"
         "</p><p><h1> /help</h1>"
         "give a list of currently supported commands"
@@ -822,6 +833,10 @@ static const char* TX_STATUS_STRING[Herder::TX_STATUS_COUNT] = {
 void
 CommandHandler::tx(std::string const& params, std::string& retStr)
 {
+    auto txTimer = mTxSubmitted.TimeScope();
+    // mTxCounter.inc();
+    // mTxMeter.Mark();
+
     std::ostringstream output;
 
     const std::string prefix("?blob=");
@@ -949,5 +964,63 @@ CommandHandler::maintenance(std::string const& params, std::string& retStr)
     {
         retStr = "No work performed";
     }
+}
+
+void
+CommandHandler::createRandomAccounts(std::string const& params, std::string& retStr)
+{
+    if (!mApp.getConfig().ARTIFICIALLY_GENERATE_LOAD_FOR_TESTING)
+    {
+        retStr = "Set ARTIFICIALLY_GENERATE_LOAD_FOR_TESTING=true in "
+            "the stellar-core.cfg if you want this behavior";
+        return;
+    }
+
+    uint32_t nAccounts = 1000000;
+    std::map<std::string, std::string> map;
+    http::server::server::parseParams(params, map);
+
+    if (!parseNumParam(map, "accounts", nAccounts, retStr,
+                       Requirement::OPTIONAL_REQ))
+    {
+        return;
+    }
+
+    mApp.getLoadGenerator().createAccountsDirectly(mApp, nAccounts);
+    retStr = fmt::format(
+        "Generating accounts: {:d} accounts",
+        nAccounts);
+}
+
+void
+CommandHandler::generateLoadForBenchmark(std::string const& params, std::string& retStr)
+{
+    if (!mApp.getConfig().ARTIFICIALLY_GENERATE_LOAD_FOR_TESTING)
+    {
+        retStr = "Set ARTIFICIALLY_GENERATE_LOAD_FOR_TESTING=true in "
+            "the stellar-core.cfg if you want this behavior";
+        return;
+    }
+
+    uint32_t nTxs = 200000;
+    uint32_t txRate = 10;
+    std::map<std::string, std::string> map;
+    http::server::server::parseParams(params, map);
+
+    if (!parseNumParam(map, "txs", nTxs, retStr,
+                       Requirement::OPTIONAL_REQ))
+    {
+        return;
+    }
+    if (!parseNumParam(map, "txrate", txRate, retStr,
+                       Requirement::OPTIONAL_REQ))
+    {
+        return;
+    }
+
+    mApp.getLoadGenerator().generateLoadForBenchmark(mApp, nTxs, txRate);
+    retStr = fmt::format(
+        "Generating load for benchmark: {:d} txs, {:d} tx/s",
+        nTxs, txRate);
 }
 }
