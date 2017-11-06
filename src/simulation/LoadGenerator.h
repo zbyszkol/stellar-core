@@ -26,7 +26,14 @@ class VirtualTimer;
 class LoadGenerator
 {
   public:
+    class TxSampler {
+    public:
+        virtual ~TxSampler();
+        virtual TxInfo generateTx();
+    };
+
     LoadGenerator(Hash const& networkID);
+    LoadGenerator(Hash const& networkID, std::unique_ptr<TxSampler>&& sampler)
     ~LoadGenerator();
     void clear();
 
@@ -183,5 +190,8 @@ class LoadGenerator
                                  TxMetrics& metrics);
         void recordExecution(int64_t baseFee);
     };
+
+private:
+    TxSampler mTxSampler;
 };
 }

@@ -54,7 +54,12 @@ static const uint64_t LOADGEN_TRUSTLINE_LIMIT = 1000 * LOADGEN_ACCOUNT_BALANCE;
 const uint32_t LoadGenerator::STEP_MSECS = 100;
 
 LoadGenerator::LoadGenerator(Hash const& networkID)
-    : mMinBalance(0), mLastSecond(0)
+    : LoadGenerator(networkID, std::unique_ptr<TxSampler>(new DefaultSampler())
+{
+}
+
+LoadGenerator::LoadGenerator(Hash const& networkID, std::unique_ptr<TxSampler>&& sampler)
+    : mMinBalance(0), mLastSecond(0), mTxSampler(std::move(sampler))
 {
     // Root account gets enough XLM to create 10 million (10^7) accounts, which
     // thereby uses up 7 + 3 + 7 = 17 decimal digits. Luckily we have 2^63 =
