@@ -54,12 +54,7 @@ static const uint64_t LOADGEN_TRUSTLINE_LIMIT = 1000 * LOADGEN_ACCOUNT_BALANCE;
 const uint32_t LoadGenerator::STEP_MSECS = 100;
 
 LoadGenerator::LoadGenerator(Hash const& networkID)
-    : LoadGenerator(networkID, std::unique_ptr<TxSampler>(new DefaultSampler())
-{
-}
-
-LoadGenerator::LoadGenerator(Hash const& networkID, std::unique_ptr<TxSampler>&& sampler)
-    : mMinBalance(0), mLastSecond(0), mTxSampler(std::move(sampler))
+    : mMinBalance(0), mLastSecond(0)
 {
     // Root account gets enough XLM to create 10 million (10^7) accounts, which
     // thereby uses up 7 + 3 + 7 = 17 decimal digits. Luckily we have 2^63 =
@@ -69,6 +64,18 @@ LoadGenerator::LoadGenerator(Hash const& networkID, std::unique_ptr<TxSampler>&&
                                          0, 0, *this);
     mAccounts.push_back(root);
 }
+
+// LoadGenerator::LoadGenerator(Hash const& networkID, std::shared_ptr<TxSampler> sampler)
+//     : mMinBalance(0), mLastSecond(0), mTxSampler(sampler)
+// {
+//     // Root account gets enough XLM to create 10 million (10^7) accounts, which
+//     // thereby uses up 7 + 3 + 7 = 17 decimal digits. Luckily we have 2^63 =
+//     // 9.2*10^18, so there's room even in 62bits to do this.
+//     auto root = make_shared<AccountInfo>(0, txtest::getRoot(networkID),
+//                                          10000000ULL * LOADGEN_ACCOUNT_BALANCE,
+//                                          0, 0, *this);
+//     mAccounts.push_back(root);
+// }
 
 LoadGenerator::~LoadGenerator()
 {
@@ -121,6 +128,33 @@ LoadGenerator::scheduleLoadGeneration(Application& app, uint32_t nAccounts,
             }
         });
     }
+}
+
+void
+LoadGenerator::scheduleLoad(Application& app, std::function<bool()> loadGenerator)
+{
+    if (!mLoadTimer)
+    {
+        mLoadTimer = make_unique<VirtualTimer>(app.getClock());
+    }
+    auto deadline = std::chrono::milliseconds(STEP_MSECS);
+    if (app.getState() != Application::APP_SYNCED_STATE)
+    {
+        CLOG(WARNING, "LoadGen")
+            << "Application is not in sync, load generation inhibited.";
+        std::chrono::seconds(10);
+
+    }
+    mLoadTimer->expires_from_now(deadline);
+    mLoadTimer->async_wait([this, app, &loadGenerator](asio::error_code const& error) {
+            if (!error)
+            {
+                if (loadGenerator())
+                {
+                    this->scheduleLoad(app, loadGenerator);
+                }
+            }
+        });
 }
 
 bool
@@ -303,6 +337,9 @@ LoadGenerator::generateLoad(Application& app, uint32_t nAccounts, uint32_t nTxs,
         auto buildScope = buildTimer.TimeScope();
         for (uint32_t i = 0; i < txPerStep; ++i)
         {
+            // TODO remove
+            // txs.push_back(mTxSampler->generateTx(ledgerNum));
+
             if (maybeCreateAccount(ledgerNum, txs))
             {
                 if (nAccounts > 0)
@@ -950,6 +987,7 @@ LoadGenerator::AccountInfo::createDirectly(Application& app)
     LedgerDelta delta(app.getLedgerManager().getCurrentLedgerHeader(),
                       app.getDatabase());
     a.storeAdd(delta, app.getDatabase());
+    app.getBucketManager().addBatch(app, ledger, std::vector<LedgerEntry>(a.getAccount()), std::vector<LedgerKey>());
 }
 
 void
@@ -1290,6 +1328,30 @@ LoadGenerator::TxInfo::recordExecution(int64_t baseFee)
         {
             mFrom->mBalance -= mAmount;
             mTo->mBalance += mAmount;
+        }
+    }
+}
+
+LoadGenerator::TxSampler::~TxSampler()
+{
+}
+
+TxInfo
+LoadGenerator::TxSampler::generateTx(uint32_t ledgerNumber)
+{
+    if (maybeCreateAccount(ledgerNum, txs))
+    {
+        if (nAccounts > 0)
+        {
+            nAccounts--;
+        }
+    }
+    else
+    {
+        txs.push_back(createRandomTransaction(0.5, ledgerNum));
+        if (nTxs > 0)
+        {
+            nTxs--;
         }
     }
 }

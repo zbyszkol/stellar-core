@@ -9,6 +9,7 @@
 #include "test/TxTests.h"
 #include "xdr/Stellar-types.h"
 #include <vector>
+#include <functional>
 
 namespace medida
 {
@@ -26,14 +27,26 @@ class VirtualTimer;
 class LoadGenerator
 {
   public:
-    class TxSampler {
-    public:
-        virtual ~TxSampler();
-        virtual TxInfo generateTx();
-    };
+    // class LoadParams {
+    // public:
+
+    // };
+
+    // class TxSampler {
+    // public:
+    //     TxSampler();
+    //     virtual ~TxSampler();
+    //     virtual TxInfo generateTx(LoadParams& uint32_t ledgerNumber);
+    // };
+
+    // class LoadStopCondition {
+    // public:
+    //     virtual ~LoadStopCondition();
+    //     virtual bool shouldStop();
+    // }
 
     LoadGenerator(Hash const& networkID);
-    LoadGenerator(Hash const& networkID, std::unique_ptr<TxSampler>&& sampler)
+    // LoadGenerator(Hash const& networkID, std::unique_ptr<TxSampler>&& sampler)
     ~LoadGenerator();
     void clear();
 
@@ -61,8 +74,10 @@ class LoadGenerator
     void scheduleLoadGeneration(Application& app, uint32_t nAccounts,
                                 uint32_t nTxs, uint32_t txRate, bool autoRate);
 
-    void scheduleBenchmarkLoadGeneration(Application& app,
-                                         uint32_t nTxs, uint32_t txRate);
+    void scheduleLoad(Application& app, std::function<bool()> loadGenerator);
+
+    // void scheduleBenchmarkLoadGeneration(Application& app,
+    //                                      uint32_t nTxs, uint32_t txRate);
 
     // Generate one "step" worth of load (assuming 1 step per STEP_MSECS) at a
     // given target number of accounts and txs, and a given target tx/s rate.
@@ -71,8 +86,8 @@ class LoadGenerator
     void generateLoad(Application& app, uint32_t nAccounts, uint32_t nTxs,
                       uint32_t txRate, bool autoRate);
 
-    void generateLoadForBenchmark(Application& app, uint32_t nTxs,
-                                  uint32_t txRate);
+    // void generateLoadForBenchmark(Application& app, uint32_t nTxs,
+    //                               uint32_t txRate);
 
     bool maybeCreateAccount(uint32_t ledgerNum, std::vector<TxInfo>& txs);
 
@@ -192,6 +207,7 @@ class LoadGenerator
     };
 
 private:
-    TxSampler mTxSampler;
+    // std::shared_ptr<TxSampler> mTxSampler;
+    // std::shared_ptr<LoadStopCondition> mStopCondition;
 };
 }
