@@ -3,25 +3,28 @@
 // of this distribution or at http://www.apache.org/licenses/LICENSE-2.0
 
 #include "simulation/Benchmark.h"
+#include <vector>
 #include <functional>
+#include "util/Logging.h"
 
 namespace stellar
 {
 
 void
-Benchmark::startBenchmark(Application& app)
+Benchmark::startBenchmark()
 {
     // TODO start timers
-    std::function<bool()> load = [this]() bool {
+    std::function<bool()> load = [this] () -> bool {
         if (!this->mIsRunning)
         {
             return false;
         }
-        generateLoadForBenchmark(this->mTxRate);
+        generateLoadForBenchmark(mApp, this->mTxRate);
 
         return true;
     };
-    scheduleLoad(app, load);
+    // TODO
+    // loadGenerator.scheduleLoad(app, load);
 }
 
 void
@@ -30,13 +33,13 @@ Benchmark::stopBenchmark()
     mIsRunning = false;
 }
 
-Metrics
+Benchmark::Metrics
 Benchmark::getMetrics()
 {
 }
 
 bool
-Benchmark::generateLoadForBenchmark(uint32_t txRate)
+Benchmark::generateLoadForBenchmark(Application& app, uint32_t txRate)
 {
     updateMinBalance(app);
 
@@ -45,7 +48,7 @@ Benchmark::generateLoadForBenchmark(uint32_t txRate)
         txRate = 1;
     }
 
-    uint32_t txPerStep = (txRate * STEP_MSECS / 1000);
+    uint32_t txPerStep = (txRate * LoadGenerator::STEP_MSECS / 1000);
 
     if (txPerStep == 0)
     {
@@ -53,11 +56,11 @@ Benchmark::generateLoadForBenchmark(uint32_t txRate)
     }
 
     uint32_t ledgerNum = app.getLedgerManager().getLedgerNum();
-    vector<TxInfo> txs;
+    std::vector<LoadGenerator::TxInfo> txs;
 
     for (uint32_t i = 0; i < txPerStep; ++i)
     {
-        txs.push_back(createRandomTransaction(0.5, ledgerNum));
+        txs.push_back(app.getLoadGenerator().createRandomTransaction(0.5, ledgerNum));
     }
 
     for (auto& tx : txs)
@@ -74,6 +77,10 @@ Benchmark::generateLoadForBenchmark(uint32_t txRate)
 void
 Benchmark::initializeBenchmark(Application& app)
 {
-    createAccounts(mNumberOfInitialAccounts);
+    for (uint32_t it = 0; it < mNumAccounts; ++it)
+    {
+        auto account = createAccount(it);
+        account->createDirectly(app);
+    }
 }
 }

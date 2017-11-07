@@ -6,7 +6,7 @@
 
 using namespace stellar;
 
-Benchmark
+std::unique_ptr<Benchmark>
 initializeBenchmark(Application& app)
 {
 }
@@ -28,12 +28,12 @@ TEST_CASE("Bucket-list entries vs. write throughput", "[scalability][hide]")
     app->start();
 
     bool done = false;
-    auto benchmark = initializeBenchmark(app);
+    auto benchmark = initializeBenchmark(*app);
 
     VirtualTimer timer{clock};
     timer.expires_from_now(testDuration);
-    timer.async_wait([&benchmark](asio::error_code const& error) {
-            benchmark.stopBenchmark();
+    timer.async_wait([&benchmark, &done](asio::error_code const& error) {
+            benchmark->stopBenchmark();
             done = true;
         });
 
@@ -43,5 +43,5 @@ TEST_CASE("Bucket-list entries vs. write throughput", "[scalability][hide]")
     }
     app->gracefulStop();
 
-    reportBenchmark(benchmark);
+    reportBenchmark(*benchmark);
 }

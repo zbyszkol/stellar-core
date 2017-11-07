@@ -5,6 +5,7 @@
 // of this distribution or at http://www.apache.org/licenses/LICENSE-2.0
 
 #include "crypto/SecretKey.h"
+#include "simulation/LoadGenerator.h"
 #include "main/Application.h"
 #include "test/TxTests.h"
 #include "xdr/Stellar-types.h"
@@ -21,22 +22,25 @@ class Timer;
 namespace stellar
 {
 
-class Benchmark : private LoadGenerator {
+class Benchmark : private LoadGenerator
+{
 public:
+    struct Metrics
+    {
+    };
+
     void initializeBenchmark(Application& app);
-    void startBenchmark(Application& app);
+    void startBenchmark();
     void stopBenchmark();
     Metrics getMetrics();
 
-    struct Metrics
-    {
-    }
-
 private:
-    bool generateLoadForBenchmark(uint32_t txRate);
+    bool generateLoadForBenchmark(Application& app, uint32_t txRate);
     bool mIsRunning;
     size_t mNumberOfInitialAccounts;
     uint32_t mTxRate;
+    Application& mApp;
+    uint32_t mNumAccounts;
 };
 
 }

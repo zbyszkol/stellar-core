@@ -15,6 +15,7 @@
 #include "util/Timer.h"
 #include "util/make_unique.h"
 #include "util/types.h"
+#include "bucket/BucketManager.h"
 
 #include "database/Database.h"
 
@@ -146,7 +147,7 @@ LoadGenerator::scheduleLoad(Application& app, std::function<bool()> loadGenerato
 
     }
     mLoadTimer->expires_from_now(deadline);
-    mLoadTimer->async_wait([this, app, &loadGenerator](asio::error_code const& error) {
+    mLoadTimer->async_wait([this, &app, &loadGenerator](asio::error_code const& error) {
             if (!error)
             {
                 if (loadGenerator())
@@ -509,182 +510,182 @@ LoadGenerator::generateLoad(Application& app, uint32_t nAccounts, uint32_t nTxs,
     }
 }
 
-void
-LoadGenerator::generateLoadForBenchmark(Application& app,
-                                        uint32_t nTxs,    uint32_t txRate)
-{
-    soci::transaction sqltx(app.getDatabase().getSession());
-    app.getDatabase().setCurrentTransactionReadOnly();
+// void
+// LoadGenerator::generateLoadForBenchmark(Application& app,
+//                                         uint32_t nTxs,    uint32_t txRate)
+// {
+//     soci::transaction sqltx(app.getDatabase().getSession());
+//     app.getDatabase().setCurrentTransactionReadOnly();
 
-    updateMinBalance(app);
+//     updateMinBalance(app);
 
-    if (txRate == 0)
-    {
-        txRate = 1;
-    }
+//     if (txRate == 0)
+//     {
+//         txRate = 1;
+//     }
 
-    // txRate is "per second"; we're running one "step" worth which is a
-    // fraction of txRate determined by STEP_MSECS. For example if txRate
-    // is 200 and STEP_MSECS is 100, then we want to do 20 tx per step.
-    uint32_t txPerStep = (txRate * STEP_MSECS / 1000);
+//     // txRate is "per second"; we're running one "step" worth which is a
+//     // fraction of txRate determined by STEP_MSECS. For example if txRate
+//     // is 200 and STEP_MSECS is 100, then we want to do 20 tx per step.
+//     uint32_t txPerStep = (txRate * STEP_MSECS / 1000);
 
-    // There is a wrinkle here though which is that the tx-apply phase might
-    // well block timers for up to half the close-time; plus we'll be probably
-    // not be scheduled quite as often as we want due to the time it takes to
-    // run and the time the network is exchanging packets. So instead of a naive
-    // calculation based _just_ on target rate and STEP_MSECS, we also adjust
-    // based on how often we seem to be waking up and taking loadgen steps in
-    // reality.
-    auto& stepMeter =
-        app.getMetrics().NewMeter({"loadgen", "step", "count"}, "step");
-    stepMeter.Mark();
-    auto stepsPerSecond = stepMeter.one_minute_rate();
-    if (stepMeter.count() > 10 && stepsPerSecond != 0)
-    {
-        txPerStep = static_cast<uint32_t>(txRate / stepsPerSecond);
-    }
+//     // There is a wrinkle here though which is that the tx-apply phase might
+//     // well block timers for up to half the close-time; plus we'll be probably
+//     // not be scheduled quite as often as we want due to the time it takes to
+//     // run and the time the network is exchanging packets. So instead of a naive
+//     // calculation based _just_ on target rate and STEP_MSECS, we also adjust
+//     // based on how often we seem to be waking up and taking loadgen steps in
+//     // reality.
+//     auto& stepMeter =
+//         app.getMetrics().NewMeter({"loadgen", "step", "count"}, "step");
+//     stepMeter.Mark();
+//     auto stepsPerSecond = stepMeter.one_minute_rate();
+//     if (stepMeter.count() > 10 && stepsPerSecond != 0)
+//     {
+//         txPerStep = static_cast<uint32_t>(txRate / stepsPerSecond);
+//     }
 
-    // If we have a very low tx rate (eg. 2/sec) then the previous division will
-    // be zero and we'll never issue anything; what we need to do instead is
-    // dispatch 1 tx every "few steps" (eg. every 5 steps). We do this by random
-    // choice, weighted to the desired frequency.
-    if (txPerStep == 0)
-    {
-        txPerStep = rand_uniform(0U, 1000U) < (txRate * STEP_MSECS) ? 1 : 0;
-    }
+//     // If we have a very low tx rate (eg. 2/sec) then the previous division will
+//     // be zero and we'll never issue anything; what we need to do instead is
+//     // dispatch 1 tx every "few steps" (eg. every 5 steps). We do this by random
+//     // choice, weighted to the desired frequency.
+//     if (txPerStep == 0)
+//     {
+//         txPerStep = rand_uniform(0U, 1000U) < (txRate * STEP_MSECS) ? 1 : 0;
+//     }
 
-    if (txPerStep > nTxs)
-    {
-        // We're done.
-        CLOG(INFO, "LoadGen") << "Load generation complete.";
-        app.getMetrics().NewMeter({"loadgen", "run", "complete"}, "run").Mark();
-        clear();
-        return;
-    }
+//     if (txPerStep > nTxs)
+//     {
+//         // We're done.
+//         CLOG(INFO, "LoadGen") << "Load generation complete.";
+//         app.getMetrics().NewMeter({"loadgen", "run", "complete"}, "run").Mark();
+//         clear();
+//         return;
+//     }
 
-    auto& buildTimer =
-        app.getMetrics().NewTimer({"loadgen", "step", "build"});
-    auto& recvTimer =
-        app.getMetrics().NewTimer({"loadgen", "step", "recv"});
+//     auto& buildTimer =
+//         app.getMetrics().NewTimer({"loadgen", "step", "build"});
+//     auto& recvTimer =
+//         app.getMetrics().NewTimer({"loadgen", "step", "recv"});
 
-    uint32_t ledgerNum = app.getLedgerManager().getLedgerNum();
-    vector<TxInfo> txs;
+//     uint32_t ledgerNum = app.getLedgerManager().getLedgerNum();
+//     vector<TxInfo> txs;
 
-    auto buildScope = buildTimer.TimeScope();
-    for (uint32_t i = 0; i < txPerStep; ++i)
-    {
-        txs.push_back(createRandomTransaction(0.5, ledgerNum));
-        if (nTxs > 0)
-        {
-            nTxs--;
-        }
-    }
-    auto build = buildScope.Stop();
+//     auto buildScope = buildTimer.TimeScope();
+//     for (uint32_t i = 0; i < txPerStep; ++i)
+//     {
+//         txs.push_back(createRandomTransaction(0.5, ledgerNum));
+//         if (nTxs > 0)
+//         {
+//             nTxs--;
+//         }
+//     }
+//     auto build = buildScope.Stop();
 
-    auto recvScope = recvTimer.TimeScope();
-    auto multinode = app.getOverlayManager().getPeers().size() > 1;
-    for (auto& tx : txs)
-    {
-        if (!tx.execute(app))
-        {
-            // Hopefully the rejection was just a bad seq number.
-            std::vector<AccountInfoPtr> accs{tx.mFrom, tx.mTo};
-            if (!tx.mPath.empty())
-            {
-                accs.insert(accs.end(), tx.mPath.begin(), tx.mPath.end());
-            }
-            for (auto i : accs)
-            {
-                loadAccount(app, i);
-                if (i)
-                {
-                    loadAccount(app, i->mBuyCredit);
-                    loadAccount(app, i->mSellCredit);
-                    for (auto const& tl : i->mTrustLines)
-                    {
-                        loadAccount(app, tl.mIssuer);
-                    }
-                }
-            }
-        }
-    }
-    auto recv = recvScope.Stop();
+//     auto recvScope = recvTimer.TimeScope();
+//     auto multinode = app.getOverlayManager().getPeers().size() > 1;
+//     for (auto& tx : txs)
+//     {
+//         if (!tx.execute(app))
+//         {
+//             // Hopefully the rejection was just a bad seq number.
+//             std::vector<AccountInfoPtr> accs{tx.mFrom, tx.mTo};
+//             if (!tx.mPath.empty())
+//             {
+//                 accs.insert(accs.end(), tx.mPath.begin(), tx.mPath.end());
+//             }
+//             for (auto i : accs)
+//             {
+//                 loadAccount(app, i);
+//                 if (i)
+//                 {
+//                     loadAccount(app, i->mBuyCredit);
+//                     loadAccount(app, i->mSellCredit);
+//                     for (auto const& tl : i->mTrustLines)
+//                     {
+//                         loadAccount(app, tl.mIssuer);
+//                     }
+//                 }
+//             }
+//         }
+//     }
+//     auto recv = recvScope.Stop();
 
-    uint64_t now = static_cast<uint64_t>(
-        VirtualClock::to_time_t(app.getClock().now()));
-    bool secondBoundary = now != mLastSecond;
+//     uint64_t now = static_cast<uint64_t>(
+//         VirtualClock::to_time_t(app.getClock().now()));
+//     bool secondBoundary = now != mLastSecond;
 
-    // Emit a log message once per second.
-    if (secondBoundary)
-    {
-        using namespace std::chrono;
+//     // Emit a log message once per second.
+//     if (secondBoundary)
+//     {
+//         using namespace std::chrono;
 
-        auto& m = app.getMetrics();
-        auto& applyTx = m.NewTimer({"ledger", "transaction", "apply"});
-        auto& applyOp = m.NewTimer({"transaction", "op", "apply"});
+//         auto& m = app.getMetrics();
+//         auto& applyTx = m.NewTimer({"ledger", "transaction", "apply"});
+//         auto& applyOp = m.NewTimer({"transaction", "op", "apply"});
 
-        auto step1ms = duration_cast<milliseconds>(build).count();
-        auto step2ms = duration_cast<milliseconds>(recv).count();
-        auto totalms = duration_cast<milliseconds>(build + recv).count();
+//         auto step1ms = duration_cast<milliseconds>(build).count();
+//         auto step2ms = duration_cast<milliseconds>(recv).count();
+//         auto totalms = duration_cast<milliseconds>(build + recv).count();
 
-        uint32_t etaSecs = (uint32_t)(((double)(nTxs)) /
-                                      applyTx.one_minute_rate());
-        uint32_t etaHours = etaSecs / 3600;
-        uint32_t etaMins = etaSecs % 60;
+//         uint32_t etaSecs = (uint32_t)(((double)(nTxs)) /
+//                                       applyTx.one_minute_rate());
+//         uint32_t etaHours = etaSecs / 3600;
+//         uint32_t etaMins = etaSecs % 60;
 
-        CLOG(INFO, "LoadGen")
-            << "Tx/s: " << txRate << " target"
-            << applyTx.one_minute_rate() << "tx/"
-            << applyOp.one_minute_rate() << "op actual (1m EWMA)."
-            << " Pending: " << nTxs << " tx."
-            << " ETA: " << etaHours << "h" << etaMins << "m";
+//         CLOG(INFO, "LoadGen")
+//             << "Tx/s: " << txRate << " target"
+//             << applyTx.one_minute_rate() << "tx/"
+//             << applyOp.one_minute_rate() << "op actual (1m EWMA)."
+//             << " Pending: " << nTxs << " tx."
+//             << " ETA: " << etaHours << "h" << etaMins << "m";
 
-        CLOG(DEBUG, "LoadGen") << "Step timing: " << totalms
-                               << "ms total = " << step1ms << "ms build, "
-                               << step2ms << "ms recv, "
-                               << (STEP_MSECS - totalms) << "ms spare";
+//         CLOG(DEBUG, "LoadGen") << "Step timing: " << totalms
+//                                << "ms total = " << step1ms << "ms build, "
+//                                << step2ms << "ms recv, "
+//                                << (STEP_MSECS - totalms) << "ms spare";
 
-        TxMetrics txm(app.getMetrics());
-        txm.mGateways.set_count(mGateways.size());
-        txm.mMarketMakers.set_count(mMarketMakers.size());
-        txm.report();
-    }
+//         TxMetrics txm(app.getMetrics());
+//         txm.mGateways.set_count(mGateways.size());
+//         txm.mMarketMakers.set_count(mMarketMakers.size());
+//         txm.report();
+//     }
 
-    scheduleBenchmarkLoadGeneration(app, nTxs, txRate);
-}
+//     scheduleBenchmarkLoadGeneration(app, nTxs, txRate);
+// }
 
-void
-LoadGenerator::scheduleBenchmarkLoadGeneration(Application& app,
-                                      uint32_t nTxs, uint32_t txRate)
-{
-    if (!mLoadTimer)
-    {
-        mLoadTimer = make_unique<VirtualTimer>(app.getClock());
-    }
+// void
+// LoadGenerator::scheduleBenchmarkLoadGeneration(Application& app,
+//                                       uint32_t nTxs, uint32_t txRate)
+// {
+//     if (!mLoadTimer)
+//     {
+//         mLoadTimer = make_unique<VirtualTimer>(app.getClock());
+//     }
 
-    if (app.getState() == Application::APP_SYNCED_STATE)
-    {
-        mLoadTimer->expires_from_now(std::chrono::milliseconds(STEP_MSECS));
-        mLoadTimer->async_wait([this, &app, nTxs, txRate](asio::error_code const& error) {
-            if (!error)
-            {
-                this->generateLoadForBenchmark(app, nTxs, txRate);
-            }
-        });
-    }
-    else
-    {
-        CLOG(WARNING, "LoadGen")
-            << "Application is not in sync, load generation inhibited.";
-        mLoadTimer->expires_from_now(std::chrono::seconds(10));
-        mLoadTimer->async_wait([this, &app, nTxs, txRate](asio::error_code const& error) {
-            if (!error)
-            {
-                this->scheduleBenchmarkLoadGeneration(app, nTxs, txRate);
-            }
-        });
-    }
-}
+//     if (app.getState() == Application::APP_SYNCED_STATE)
+//     {
+//         mLoadTimer->expires_from_now(std::chrono::milliseconds(STEP_MSECS));
+//         mLoadTimer->async_wait([this, &app, nTxs, txRate](asio::error_code const& error) {
+//             if (!error)
+//             {
+//                 this->generateLoadForBenchmark(app, nTxs, txRate);
+//             }
+//         });
+//     }
+//     else
+//     {
+//         CLOG(WARNING, "LoadGen")
+//             << "Application is not in sync, load generation inhibited.";
+//         mLoadTimer->expires_from_now(std::chrono::seconds(10));
+//         mLoadTimer->async_wait([this, &app, nTxs, txRate](asio::error_code const& error) {
+//             if (!error)
+//             {
+//                 this->scheduleBenchmarkLoadGeneration(app, nTxs, txRate);
+//             }
+//         });
+//     }
+// }
 
 void
 LoadGenerator::updateMinBalance(Application& app)
@@ -987,7 +988,8 @@ LoadGenerator::AccountInfo::createDirectly(Application& app)
     LedgerDelta delta(app.getLedgerManager().getCurrentLedgerHeader(),
                       app.getDatabase());
     a.storeAdd(delta, app.getDatabase());
-    app.getBucketManager().addBatch(app, ledger, std::vector<LedgerEntry>(a.getAccount()), std::vector<LedgerKey>());
+    std::vector<LedgerEntry> live = {a.mEntry};
+    app.getBucketManager().addBatch(app, ledger, live, std::vector<LedgerKey>());
 }
 
 void
@@ -1332,27 +1334,27 @@ LoadGenerator::TxInfo::recordExecution(int64_t baseFee)
     }
 }
 
-LoadGenerator::TxSampler::~TxSampler()
-{
-}
+// LoadGenerator::TxSampler::~TxSampler()
+// {
+// }
 
-TxInfo
-LoadGenerator::TxSampler::generateTx(uint32_t ledgerNumber)
-{
-    if (maybeCreateAccount(ledgerNum, txs))
-    {
-        if (nAccounts > 0)
-        {
-            nAccounts--;
-        }
-    }
-    else
-    {
-        txs.push_back(createRandomTransaction(0.5, ledgerNum));
-        if (nTxs > 0)
-        {
-            nTxs--;
-        }
-    }
-}
+// TxInfo
+// LoadGenerator::TxSampler::generateTx(uint32_t ledgerNumber)
+// {
+//     if (maybeCreateAccount(ledgerNum, txs))
+//     {
+//         if (nAccounts > 0)
+//         {
+//             nAccounts--;
+//         }
+//     }
+//     else
+//     {
+//         txs.push_back(createRandomTransaction(0.5, ledgerNum));
+//         if (nTxs > 0)
+//         {
+//             nTxs--;
+//         }
+//     }
+// }
 }
