@@ -47,7 +47,7 @@ class LoadGenerator
 
     LoadGenerator(Hash const& networkID);
     // LoadGenerator(Hash const& networkID, std::unique_ptr<TxSampler>&& sampler)
-    ~LoadGenerator();
+    virtual ~LoadGenerator();
     void clear();
 
     struct TxInfo;
@@ -108,7 +108,7 @@ class LoadGenerator
                                     int64_t amount,
                                     std::vector<AccountInfoPtr> const& path);
 
-    AccountInfoPtr pickRandomAccount(AccountInfoPtr tryToAvoid,
+    virtual AccountInfoPtr pickRandomAccount(AccountInfoPtr tryToAvoid,
                                      uint32_t ledgerNum);
 
     AccountInfoPtr pickRandomPath(AccountInfoPtr from, uint32_t ledgerNum,
@@ -154,7 +154,7 @@ class LoadGenerator
         AccountInfoPtr mBuyCredit;
         AccountInfoPtr mSellCredit;
 
-        void createDirectly(Application& app);
+        AccountFrame createDirectly(Application& app);
         void debitDirectly(Application& app, int64_t debitAmount);
         TxInfo creationTransaction();
 

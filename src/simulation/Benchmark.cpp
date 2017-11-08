@@ -3,28 +3,37 @@
 // of this distribution or at http://www.apache.org/licenses/LICENSE-2.0
 
 #include "simulation/Benchmark.h"
+
+#include <algorithm>
 #include <vector>
 #include <functional>
+#include <random>
 #include "util/Logging.h"
+#include "bucket/BucketManager.h"
 
 namespace stellar
 {
 
+Benchmark::Benchmark(Hash const& networkID)
+    : LoadGenerator(networkID), mNumberOfInitialAccounts(1000), mIsRunning(false), mTxRate(1000)
+{
+}
+
 void
-Benchmark::startBenchmark()
+Benchmark::startBenchmark(Application& app)
 {
     // TODO start timers
-    std::function<bool()> load = [this] () -> bool {
+    std::function<bool()> load = [this, &app] () -> bool {
         if (!this->mIsRunning)
         {
             return false;
         }
-        generateLoadForBenchmark(mApp, this->mTxRate);
+        generateLoadForBenchmark(app, this->mTxRate);
 
         return true;
     };
     // TODO
-    // loadGenerator.scheduleLoad(app, load);
+    scheduleLoad(app, load);
 }
 
 void
@@ -77,10 +86,33 @@ Benchmark::generateLoadForBenchmark(Application& app, uint32_t txRate)
 void
 Benchmark::initializeBenchmark(Application& app)
 {
-    for (uint32_t it = 0; it < mNumAccounts; ++it)
-    {
-        auto account = createAccount(it);
-        account->createDirectly(app);
+    CLOG(INFO, "Benchmark") << "Initializing benchmark...";
+    std::vector<LoadGenerator::AccountInfoPtr> createdAccounts = createAccounts(mNumberOfInitialAccounts);
+    std::vector<LedgerEntry> live;
+    auto ledger = app.getLedgerManager().getLedgerNum();
+    // auro header = app.getLedgerManager().getLeadgerHeader();
+    std::transform(createdAccounts.begin(), createdAccounts.end(), std::back_inserter(live),
+                   [&app] (LoadGenerator::AccountInfoPtr const& account)
+                   {
+                       AccountFrame aFrame = account->createDirectly(app);
+                       return aFrame.mEntry;
+                   });
+    // TODO stellar-core is throwing an exception with invalid totalcoinsinvariant
+    app.getBucketManager().addBatch(app, ledger, live, {});
+
+    auto rng = std::default_random_engine {};
+    std::shuffle(mAccounts.begin(), mAccounts.end(), rng);
+    mRandomIterator = mAccounts.begin();
+}
+
+LoadGenerator::AccountInfoPtr
+Benchmark::pickRandomAccount(AccountInfoPtr tryToAvoid, uint32_t ledgerNum)
+{
+    if (mRandomIterator == mAccounts.end()) {
+        mRandomIterator = mAccounts.begin();
     }
+    auto result = *mRandomIterator;
+    mRandomIterator++;
+    return result;
 }
 }

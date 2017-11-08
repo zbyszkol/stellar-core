@@ -976,7 +976,7 @@ LoadGenerator::AccountInfo::creationTransaction()
                   TxInfo::TX_CREATE_ACCOUNT, LOADGEN_ACCOUNT_BALANCE};
 }
 
-void
+AccountFrame
 LoadGenerator::AccountInfo::createDirectly(Application& app)
 {
     AccountFrame a(mKey.getPublicKey());
@@ -988,8 +988,7 @@ LoadGenerator::AccountInfo::createDirectly(Application& app)
     LedgerDelta delta(app.getLedgerManager().getCurrentLedgerHeader(),
                       app.getDatabase());
     a.storeAdd(delta, app.getDatabase());
-    std::vector<LedgerEntry> live = {a.mEntry};
-    app.getBucketManager().addBatch(app, ledger, live, std::vector<LedgerKey>());
+    return a;
 }
 
 void

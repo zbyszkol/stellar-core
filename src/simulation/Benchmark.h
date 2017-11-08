@@ -25,22 +25,25 @@ namespace stellar
 class Benchmark : private LoadGenerator
 {
 public:
+    Benchmark(Hash const& networkID);
     struct Metrics
     {
     };
 
     void initializeBenchmark(Application& app);
-    void startBenchmark();
+    void startBenchmark(Application& app);
     void stopBenchmark();
     Metrics getMetrics();
+    virtual LoadGenerator::AccountInfoPtr pickRandomAccount(AccountInfoPtr tryToAvoid, uint32_t ledgerNum);
 
 private:
     bool generateLoadForBenchmark(Application& app, uint32_t txRate);
     bool mIsRunning;
     size_t mNumberOfInitialAccounts;
     uint32_t mTxRate;
-    Application& mApp;
-    uint32_t mNumAccounts;
+    // Application& mApp;
+    // uint32_t mNumAccounts;
+    std::vector<AccountInfoPtr>::iterator mRandomIterator;
 };
 
 }
