@@ -10,6 +10,7 @@
 #include <random>
 #include "util/Logging.h"
 #include "bucket/BucketManager.h"
+#include "ledger/LedgerDelta.h"
 
 namespace stellar
 {
@@ -23,6 +24,7 @@ void
 Benchmark::startBenchmark(Application& app)
 {
     // TODO start timers
+    mIsRunning = true;
     std::function<bool()> load = [this, &app] () -> bool {
         if (!this->mIsRunning)
         {
@@ -91,14 +93,25 @@ Benchmark::initializeBenchmark(Application& app)
     std::vector<LedgerEntry> live;
     auto ledger = app.getLedgerManager().getLedgerNum();
     // auro header = app.getLedgerManager().getLeadgerHeader();
+    int64_t balanceDiff = 0;
     std::transform(createdAccounts.begin(), createdAccounts.end(), std::back_inserter(live),
-                   [&app] (LoadGenerator::AccountInfoPtr const& account)
+                   [&app, &balanceDiff] (LoadGenerator::AccountInfoPtr const& account)
                    {
                        AccountFrame aFrame = account->createDirectly(app);
+                       balanceDiff -= aFrame.getBalance();
                        return aFrame.mEntry;
                    });
     // TODO stellar-core is throwing an exception with invalid totalcoinsinvariant
-    app.getBucketManager().addBatch(app, ledger, live, {});
+    // app.getBucketManager().addBatch(app, ledger, live, {});
+    SecretKey skey = SecretKey::fromSeed(app.getNetworkID());
+    AccountFrame::pointer masterAccount = AccountFrame::loadAccount(skey.getPublicKey(), app.getDatabase());
+    // AccountFrame masterAccount(skey.getPublicKey());
+    // masterAccount.loadAcc
+    masterAccount->addBalance(balanceDiff); // mNumberOfInitialAccounts * LoadGenerator::LOADGEN_ACCOUNT_BALANCE;
+    LedgerDelta delta(app.getLedgerManager().getCurrentLedgerHeader(), app.getDatabase());
+    masterAccount->touch(ledger);
+    masterAccount->storeChange(delta, app.getDatabase());
+    delta.commit();
 
     auto rng = std::default_random_engine {};
     std::shuffle(mAccounts.begin(), mAccounts.end(), rng);

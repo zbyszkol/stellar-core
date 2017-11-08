@@ -147,7 +147,7 @@ LoadGenerator::scheduleLoad(Application& app, std::function<bool()> loadGenerato
 
     }
     mLoadTimer->expires_from_now(deadline);
-    mLoadTimer->async_wait([this, &app, &loadGenerator](asio::error_code const& error) {
+    mLoadTimer->async_wait([this, &app, loadGenerator](asio::error_code const& error) {
             if (!error)
             {
                 if (loadGenerator())
@@ -988,6 +988,11 @@ LoadGenerator::AccountInfo::createDirectly(Application& app)
     LedgerDelta delta(app.getLedgerManager().getCurrentLedgerHeader(),
                       app.getDatabase());
     a.storeAdd(delta, app.getDatabase());
+
+    // SecretKey skey = SecretKey::fromSeed(mApp.getNetworkID());
+    // AccountFrame masterAccount(skey.getPublicKey());
+
+    delta.commit();
     return a;
 }
 

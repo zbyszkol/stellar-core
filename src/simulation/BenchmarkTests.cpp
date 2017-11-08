@@ -80,7 +80,7 @@ TEST_CASE("stellar-core's benchmark", "[benchmark]")
 
     while (!done)
     {
-        std::cout << "cranking" << std::endl;
+        // std::cout << "cranking" << std::endl;
         clock.crank();
     }
     app->gracefulStop();
