@@ -102,7 +102,6 @@ Benchmark::initializeBenchmark(Application& app)
                        return aFrame.mEntry;
                    });
     // TODO stellar-core is throwing an exception with invalid totalcoinsinvariant
-    // app.getBucketManager().addBatch(app, ledger, live, {});
     SecretKey skey = SecretKey::fromSeed(app.getNetworkID());
     AccountFrame::pointer masterAccount = AccountFrame::loadAccount(skey.getPublicKey(), app.getDatabase());
     // AccountFrame masterAccount(skey.getPublicKey());
@@ -112,6 +111,9 @@ Benchmark::initializeBenchmark(Application& app)
     masterAccount->touch(ledger);
     masterAccount->storeChange(delta, app.getDatabase());
     delta.commit();
+
+    live.push_back(masterAccount->mEntry);
+    app.getBucketManager().addBatch(app, ledger, live, {});
 
     auto rng = std::default_random_engine {};
     std::shuffle(mAccounts.begin(), mAccounts.end(), rng);
