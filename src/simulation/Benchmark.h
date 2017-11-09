@@ -34,7 +34,7 @@ public:
     void startBenchmark(Application& app);
     void stopBenchmark();
     Metrics getMetrics();
-    virtual LoadGenerator::AccountInfoPtr pickRandomAccount(AccountInfoPtr tryToAvoid, uint32_t ledgerNum);
+    virtual LoadGenerator::AccountInfoPtr pickRandomAccount(AccountInfoPtr tryToAvoid, uint32_t ledgerNum) override;
 
 private:
     bool generateLoadForBenchmark(Application& app, uint32_t txRate);

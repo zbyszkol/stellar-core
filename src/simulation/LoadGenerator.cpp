@@ -707,12 +707,12 @@ LoadGenerator::createAccount(size_t i, uint32_t ledgerNum)
 }
 
 vector<LoadGenerator::AccountInfoPtr>
-LoadGenerator::createAccounts(size_t n)
+LoadGenerator::createAccounts(size_t n, uint32_t ledgerNum)
 {
     vector<AccountInfoPtr> result;
     for (size_t i = 0; i < n; i++)
     {
-        auto account = createAccount(mAccounts.size());
+        auto account = createAccount(mAccounts.size(), ledgerNum);
         mAccounts.push_back(account);
         result.push_back(account);
     }
@@ -988,11 +988,7 @@ LoadGenerator::AccountInfo::createDirectly(Application& app)
     LedgerDelta delta(app.getLedgerManager().getCurrentLedgerHeader(),
                       app.getDatabase());
     a.storeAdd(delta, app.getDatabase());
-
-    // SecretKey skey = SecretKey::fromSeed(mApp.getNetworkID());
-    // AccountFrame masterAccount(skey.getPublicKey());
-
-    delta.commit();
+    // delta.commit();
     return a;
 }
 

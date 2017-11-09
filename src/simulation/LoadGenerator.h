@@ -93,7 +93,7 @@ class LoadGenerator
 
     std::vector<TxInfo> accountCreationTransactions(size_t n);
     AccountInfoPtr createAccount(size_t i, uint32_t ledgerNum = 0);
-    std::vector<AccountInfoPtr> createAccounts(size_t n);
+    std::vector<AccountInfoPtr> createAccounts(size_t n, uint32_t ledgerNum = 0);
     void createAccountsDirectly(Application& app, size_t n);
 
     bool loadAccount(Application& app, AccountInfo& account);

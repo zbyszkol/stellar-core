@@ -48,6 +48,8 @@ initializeConfig()
 
     std::unique_ptr<Config> cfg = make_unique<Config>(getTestConfig());
     cfg->DATABASE = SecretValue{"postgresql://dbname=core user=stellar password=__PGPASS__ host=localhost"};
+    cfg->PUBLIC_HTTP_PORT=true;
+    cfg->DESIRED_MAX_TX_PER_LEDGER = 1300;
     return cfg;
 }
 
@@ -63,12 +65,10 @@ TEST_CASE("stellar-core's benchmark", "[benchmark]")
     VirtualClock clock(VirtualClock::REAL_TIME);
     std::unique_ptr<Config> cfg = initializeConfig();
 
-    Application::pointer app = Application::create(clock, *cfg);
-
-    app->start();
-
+    Application::pointer app = Application::create(clock, *cfg, false);
     bool done = false;
     auto benchmark = initializeBenchmark(*app);
+    app->start();
     benchmark->startBenchmark(*app);
 
     VirtualTimer timer{clock};
