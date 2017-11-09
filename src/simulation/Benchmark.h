@@ -35,14 +35,16 @@ public:
     void stopBenchmark();
     Metrics getMetrics();
     virtual LoadGenerator::AccountInfoPtr pickRandomAccount(AccountInfoPtr tryToAvoid, uint32_t ledgerNum) override;
+    std::vector<LoadGenerator::AccountInfoPtr> createAccountsDirectly(Application& app, size_t n, uint32_t ledgerNum);
 
 private:
     bool generateLoadForBenchmark(Application& app, uint32_t txRate);
+    std::vector<AccountInfoPtr>::iterator shuffleAccounts(std::vector<LoadGenerator::AccountInfoPtr>& accounts);
+    void setMaxTxSize(LedgerManager& ledger);
+    LedgerCloseData createData(LedgerManager& ledger, StellarValue& value);
     bool mIsRunning;
     size_t mNumberOfInitialAccounts;
     uint32_t mTxRate;
-    // Application& mApp;
-    // uint32_t mNumAccounts;
     std::vector<AccountInfoPtr>::iterator mRandomIterator;
 };
 

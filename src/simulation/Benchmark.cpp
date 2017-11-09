@@ -16,7 +16,7 @@ namespace stellar
 {
 
 Benchmark::Benchmark(Hash const& networkID)
-    : LoadGenerator(networkID), mIsRunning(false), mNumberOfInitialAccounts(5000), mTxRate(10)
+    : LoadGenerator(networkID), mIsRunning(false), mNumberOfInitialAccounts(5000), mTxRate(250)
 {
 }
 
@@ -65,11 +65,12 @@ Benchmark::generateLoadForBenchmark(Application& app, uint32_t txRate)
     {
         txPerStep = 1;
     }
+    CLOG(TRACE, "Benchmark") << "Going to generate " << txPerStep << "transactions per step";
 
     uint32_t ledgerNum = app.getLedgerManager().getLedgerNum();
     std::vector<LoadGenerator::TxInfo> txs;
 
-    for (uint32_t i = 0; i < txPerStep; ++i)
+    for (uint32_t it = 0; it < txPerStep; ++it)
     {
         txs.push_back(createRandomTransaction(0.5, ledgerNum));
     }
@@ -85,62 +86,86 @@ Benchmark::generateLoadForBenchmark(Application& app, uint32_t txRate)
     return true;
 }
 
+std::vector<LoadGenerator::AccountInfoPtr>
+Benchmark::createAccountsDirectly(Application& app, size_t n, uint32_t ledgerNum)
+{
+    auto ledger = app.getLedgerManager().getLedgerNum();
+    std::vector<LoadGenerator::AccountInfoPtr> createdAccounts = createAccounts(mNumberOfInitialAccounts, ledger);
+
+    int64_t balanceDiff = 0;
+    std::vector<LedgerEntry> live;
+    std::transform(createdAccounts.begin(), createdAccounts.end(), std::back_inserter(live),
+                   [&app, &balanceDiff] (LoadGenerator::AccountInfoPtr const& account)
+                   {
+                       AccountFrame aFrame = account->createDirectly(app);
+                       balanceDiff += aFrame.getBalance();
+                       return aFrame.mEntry;
+                   });
+
+    SecretKey skey = SecretKey::fromSeed(app.getNetworkID());
+    AccountFrame::pointer masterAccount = AccountFrame::loadAccount(skey.getPublicKey(), app.getDatabase());
+
+    LedgerDelta delta(app.getLedgerManager().getCurrentLedgerHeader(), app.getDatabase());
+    masterAccount->addBalance(-balanceDiff);
+    masterAccount->touch(ledger);
+    masterAccount->storeChange(delta, app.getDatabase());
+
+    live.push_back(masterAccount->mEntry);
+    app.getBucketManager().addBatch(app, ledger, live, {});
+
+    StellarValue sv(app.getLedgerManager().getLastClosedLedgerHeader().hash, ledger,
+                    emptyUpgradeSteps, 0);
+    LedgerCloseData ledgerData = createData(app.getLedgerManager(), sv);
+    app.getLedgerManager().closeLedger(ledgerData);
+
+    return createdAccounts;
+}
+
+void
+Benchmark::setMaxTxSize(LedgerManager& ledger)
+{
+    StellarValue sv(ledger.getLastClosedLedgerHeader().hash, ledger.getLedgerNum(),
+                    emptyUpgradeSteps, 0);
+    {
+        LedgerUpgrade up(LEDGER_UPGRADE_MAX_TX_SET_SIZE);
+        up.newMaxTxSetSize() = 1300;
+        Value v(xdr::xdr_to_opaque(up));
+        sv.upgrades.emplace_back(v.begin(), v.end());
+    }
+    LedgerCloseData ledgerData = createData(ledger, sv);
+    ledger.closeLedger(ledgerData);
+}
+
+LedgerCloseData
+Benchmark::createData(LedgerManager& ledger, StellarValue& value)
+{
+    auto ledgerNum = ledger.getLedgerNum();
+    TxSetFramePtr txSet = std::make_shared<TxSetFrame>(
+        ledger.getLastClosedLedgerHeader().hash);
+    value.txSetHash = txSet->getContentsHash();
+    return LedgerCloseData{ledgerNum, txSet, value};
+}
+
 void
 Benchmark::initializeBenchmark(Application& app)
 {
     CLOG(INFO, "Benchmark") << "Initializing benchmark...";
     app.newDB();
-    // app.getLedgerManager().startNewLedger();
 
     auto ledger = app.getLedgerManager().getLedgerNum();
-    std::vector<LoadGenerator::AccountInfoPtr> createdAccounts = createAccounts(mNumberOfInitialAccounts, ledger);
-    std::vector<LedgerEntry> live;
-    // auro header = app.getLedgerManager().getLeadgerHeader();
-    LedgerDelta delta(app.getLedgerManager().getCurrentLedgerHeader(), app.getDatabase());
-    int64_t balanceDiff = 0;
-    std::transform(createdAccounts.begin(), createdAccounts.end(), std::back_inserter(live),
-                   [&app, &balanceDiff, &delta] (LoadGenerator::AccountInfoPtr const& account)
-                   {
-                       AccountFrame aFrame = account->createDirectly(app);
-                       // delta.addEntry(aFrame);
-                       balanceDiff -= aFrame.getBalance();
-                       return aFrame.mEntry;
-                   });
 
-    // std::for_each(createdAccounts.begin(), createdAccounts.end(),
-    //               [&app, &balanceDiff, &delta](LoadGenerator::AccountInfoPtr const& account) {
-    //                   AccountFrame aFrame = account->createDirectly(app);
-    //                   delta.addEntry(aFrame);
-    //                   balanceDiff -= aFrame.getBalance();
-    //               });
+    mAccounts = createAccountsDirectly(app, mNumberOfInitialAccounts, ledger);
+    mRandomIterator = shuffleAccounts(mAccounts);
 
-    // TODO stellar-core is throwing an exception with invalid totalcoinsinvariant
-    SecretKey skey = SecretKey::fromSeed(app.getNetworkID());
-    AccountFrame::pointer masterAccount = AccountFrame::loadAccount(skey.getPublicKey(), app.getDatabase());
-    // AccountFrame masterAccount(skey.getPublicKey());
-    // masterAccount.loadAcc
+    setMaxTxSize(app.getLedgerManager());
+}
 
-    masterAccount->addBalance(balanceDiff); // mNumberOfInitialAccounts * LoadGenerator::LOADGEN_ACCOUNT_BALANCE;
-    masterAccount->touch(ledger);
-    masterAccount->storeChange(delta, app.getDatabase());
-
-    // delta.commit();
-
-    live.push_back(masterAccount->mEntry);
-    app.getBucketManager().addBatch(app, ledger, live, {});
-    // app.getLedgerManager().ledgerClosed(delta);
-    TxSetFramePtr txSet = std::make_shared<TxSetFrame>(
-        app.getLedgerManager().getLastClosedLedgerHeader().hash);
-    StellarValue sv(txSet->getContentsHash(),
-                    VirtualClock::to_time_t(app.getClock().now()),
-                    emptyUpgradeSteps, 0);
-    LedgerCloseData ledgerData(app.getLedgerManager().getLedgerNum(),
-                               txSet, sv);
-    app.getLedgerManager().closeLedger(ledgerData);
-
-    auto rng = std::default_random_engine {};
+std::vector<LoadGenerator::AccountInfoPtr>::iterator
+Benchmark::shuffleAccounts(std::vector<LoadGenerator::AccountInfoPtr>& accounts)
+{
+    auto rng = std::default_random_engine{};
     std::shuffle(mAccounts.begin(), mAccounts.end(), rng);
-    mRandomIterator = mAccounts.begin();
+    return mAccounts.begin();
 }
 
 LoadGenerator::AccountInfoPtr
