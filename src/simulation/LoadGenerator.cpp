@@ -127,13 +127,13 @@ LoadGenerator::scheduleLoad(Application& app, std::function<bool()> loadGenerato
         mLoadTimer = make_unique<VirtualTimer>(app.getClock());
     }
     auto deadline = std::chrono::milliseconds(STEP_MSECS);
-    if (app.getState() != Application::APP_SYNCED_STATE)
-    {
-        CLOG(WARNING, "LoadGen")
-            << "Application is not in sync, load generation inhibited.";
-        std::chrono::seconds(10);
+    // if (app.getState() != Application::APP_SYNCED_STATE)
+    // {
+    //     CLOG(WARNING, "LoadGen")
+    //         << "Application is not in sync, load generation inhibited.";
+    //     std::chrono::seconds(10);
 
-    }
+    // }
     mLoadTimer->expires_from_now(deadline);
     mLoadTimer->async_wait([this, &app, loadGenerator](asio::error_code const& error) {
             if (!error)
@@ -307,14 +307,6 @@ LoadGenerator::generateLoad(Application& app, uint32_t nAccounts, uint32_t nTxs,
     }
     else
     {
-        // TODO remove this
-        // if (nAccounts > mAccounts.size()) {
-        //     while (nAccounts > mAccounts.size()) { 
-        //         auto acc = createAccount(ledgerNum);
-        //         acc.createDirectly(mApp);
-        //     }
-        // }
-
         auto& buildTimer =
             app.getMetrics().NewTimer({"loadgen", "step", "build"});
         auto& recvTimer =
@@ -326,9 +318,6 @@ LoadGenerator::generateLoad(Application& app, uint32_t nAccounts, uint32_t nTxs,
         auto buildScope = buildTimer.TimeScope();
         for (uint32_t i = 0; i < txPerStep; ++i)
         {
-            // TODO remove
-            // txs.push_back(mTxSampler->generateTx(ledgerNum));
-
             if (maybeCreateAccount(ledgerNum, txs))
             {
                 if (nAccounts > 0)
@@ -799,7 +788,6 @@ LoadGenerator::AccountInfo::createDirectly(Application& app)
     LedgerDelta delta(app.getLedgerManager().getCurrentLedgerHeader(),
                       app.getDatabase());
     a.storeAdd(delta, app.getDatabase());
-    // delta.commit();
     return a;
 }
 
@@ -978,6 +966,7 @@ LoadGenerator::TxInfo::toTransactionFrames(
             e.tx.sourceAccount = mFrom->mKey.getPublicKey();
             signingAccounts.insert(mFrom);
             e.tx.seqNum = mFrom->mSeq + 1;
+            // CLOG(INFO, "LoadGen") << "seqNum: " << e.tx.seqNum << ", " << mFrom->mSeq;
 
             // Add a CREATE_ACCOUNT op
             Operation createOp;
