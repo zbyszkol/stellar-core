@@ -64,8 +64,6 @@ HerderImpl::SCPMetrics::SCPMetrics(Application& app)
           app.getMetrics().NewCounter({"herder", "pending-txs", "age2"}))
     , mHerderPendingTxs3(
           app.getMetrics().NewCounter({"herder", "pending-txs", "age3"}))
-    , mRecvTransaction(
-        app.getMetrics().NewTimer({"benchmark", "recv", "tx", "calls"}))
 {
 }
 
