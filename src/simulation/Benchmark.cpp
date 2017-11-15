@@ -23,14 +23,13 @@ const char* Benchmark::LOGGER_ID = "LoadGen";
 size_t Benchmark::MAXIMAL_NUMBER_OF_TXS_PER_LEDGER = 1000;
 
 Benchmark::Benchmark(Hash const& networkID)
-    : LoadGenerator(networkID), mIsRunning(false), mNumberOfInitialAccounts(10000), mTxRate(250)
+    : LoadGenerator(networkID), mIsRunning(false), mNumberOfInitialAccounts(10000), mTxRate(MAXIMAL_NUMBER_OF_TXS_PER_LEDGER / 5)
 {
 }
 
 std::shared_ptr<Benchmark::Metrics>
 Benchmark::startBenchmark(Application& app)
 {
-    // TODO start timers
     mIsRunning = true;
     using namespace std;
     shared_ptr<Benchmark::Metrics> metrics{ initializeMetrics(app.getMetrics()) };
@@ -73,11 +72,6 @@ Benchmark::stopBenchmark(std::shared_ptr<Benchmark::Metrics> metrics)
     return metrics;
 }
 
-Benchmark::Metrics
-Benchmark::getMetrics()
-{
-}
-
 bool
 Benchmark::generateLoadForBenchmark(Application& app, uint32_t txRate, Metrics& metrics)
 {
@@ -118,7 +112,6 @@ Benchmark::generateLoadForBenchmark(Application& app, uint32_t txRate, Metrics& 
     return true;
 }
 
-// std::vector<LoadGenerator::AccountInfoPtr>
 void
 Benchmark::createAccounts(Application& app, size_t n)
 {
@@ -160,8 +153,6 @@ Benchmark::createAccounts(Application& app, size_t n)
 
         accountsLeft -= batchSize;
     }
-
-    // return createAccounts;
 }
 
 void
@@ -177,7 +168,6 @@ Benchmark::createAccountsUsingTransactions(Application& app, size_t n)
     }
 }
 
-// std::vector<LoadGenerator::AccountInfoPtr>
 void
 Benchmark::createAccountsDirectly(Application& app, size_t n)
 {
@@ -246,7 +236,7 @@ Benchmark::createData(LedgerManager& ledger, StellarValue& value)
 void
 Benchmark::prepareBenchmark(Application& app)
 {
-    CLOG(INFO, LOGGER_ID) << "Initializing benchmark...";
+    CLOG(INFO, LOGGER_ID) << "Preparing data for benchmark";
 
     initializeMetrics(app.getMetrics());
 
@@ -259,6 +249,8 @@ Benchmark::prepareBenchmark(Application& app)
     createAccountsDirectly(app, mNumberOfInitialAccounts);
     // createAccounts(app, mNumberOfInitialAccounts);
     // createAccountsUsingTransactions(app, mNumberOfInitialAccounts);
+
+    CLOG(INFO, LOGGER_ID) << "Data for benchmark prepared";
 }
 
 void
@@ -272,7 +264,7 @@ Benchmark::initializeBenchmark(Application& app, uint32_t ledgerNum)
 std::vector<LoadGenerator::AccountInfoPtr>::iterator
 Benchmark::shuffleAccounts(std::vector<LoadGenerator::AccountInfoPtr>& accounts)
 {
-    auto rng = std::default_random_engine{};
+    auto rng = std::default_random_engine{0};
     std::shuffle(mAccounts.begin(), mAccounts.end(), rng);
     return mAccounts.begin();
 }

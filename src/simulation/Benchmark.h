@@ -44,7 +44,6 @@ public:
     void initializeBenchmark(Application& app, uint32_t ledgerNum);
     std::shared_ptr<Metrics> startBenchmark(Application& app);
     std::shared_ptr<Metrics> stopBenchmark(std::shared_ptr<Metrics> metrics);
-    Metrics getMetrics();
     virtual LoadGenerator::AccountInfoPtr pickRandomAccount(AccountInfoPtr tryToAvoid, uint32_t ledgerNum) override;
     // std::vector<LoadGenerator::AccountInfoPtr>
     void createAccountsDirectly(Application& app, size_t n);

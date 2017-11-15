@@ -62,10 +62,12 @@ initializeConfig()
     std::unique_ptr<Config> cfg = make_unique<Config>(getTestConfig());
     cfg->DATABASE = SecretValue{"postgresql://dbname=core user=stellar password=__PGPASS__ host=localhost"};
     cfg->PUBLIC_HTTP_PORT=true;
-    cfg->COMMANDS.push_back("ll?level=trace");
-
+    cfg->COMMANDS.push_back("ll?level=info");
     cfg->DESIRED_MAX_TX_PER_LEDGER = Benchmark::MAXIMAL_NUMBER_OF_TXS_PER_LEDGER;
     cfg->FORCE_SCP = true;
+    cfg->RUN_STANDALONE = false;
+    cfg->BUCKET_DIR_PATH = "buckets";
+
     return cfg;
 }
 
@@ -94,10 +96,6 @@ TEST_CASE("stellar-core's benchmark", "[benchmark]")
     std::unique_ptr<Config> cfg = initializeConfig();
 
     Application::pointer app = Application::create(clock, *cfg, false);
-    // app->getPersistentState().setState(
-    //     PersistentState::kForceSCPOnNextLaunch, "true");
-    // app->gracefulStop();
-    // app = Application::create(clock, *cfg, false);
     app->applyCfgCommands();
     app->start();
     auto benchmark = initializeBenchmark(*app);
