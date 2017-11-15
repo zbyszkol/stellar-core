@@ -603,7 +603,6 @@ LoadGenerator::pickRandomAccount(AccountInfoPtr tryToAvoid, uint32_t ledgerNum)
     while (i-- != 0)
     {
         auto n = rand_element(mAccounts);
-        LOG_IF(n == nullptr, ERROR) << "Random account appears to be null";
         if (n->canUseInLedger(ledgerNum) && n != tryToAvoid)
         {
             return n;
@@ -959,7 +958,6 @@ LoadGenerator::TxInfo::toTransactionFrames(
             e.tx.sourceAccount = mFrom->mKey.getPublicKey();
             signingAccounts.insert(mFrom);
             e.tx.seqNum = mFrom->mSeq + 1;
-            // CLOG(INFO, "LoadGen") << "seqNum: " << e.tx.seqNum << ", " << mFrom->mSeq;
 
             // Add a CREATE_ACCOUNT op
             Operation createOp;
