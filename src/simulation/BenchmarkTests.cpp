@@ -5,9 +5,13 @@
 #include "util/Timer.h"
 #include "util/make_unique.h"
 #include "main/PersistentState.h"
+#include "history/HistoryArchive.h"
+#include "util/Logging.h"
 
 
 using namespace stellar;
+
+const char* LOGGER_ID = "LoadGen";
 
 std::unique_ptr<Benchmark>
 initializeBenchmark(Application& app)
@@ -22,7 +26,6 @@ prepareBenchmark(Application& app)
 {
     auto benchmark = make_unique<Benchmark>(app.getNetworkID());
     benchmark->prepareBenchmark(app);
-
 }
 
 std::unique_ptr<Config>
@@ -67,13 +70,24 @@ initializeConfig()
     cfg->FORCE_SCP = true;
     cfg->RUN_STANDALONE = false;
     cfg->BUCKET_DIR_PATH = "buckets";
+    using namespace std;
+    const string historyName = "benchmark";
+    const string historyGetCmd = "cp history/vs/{0} {1}";
+    const string historyPutCmd = "cp {0} history/vs/{1}";
+    const string historyMkdirCmd = "mkdir -p history/vs/{0}";
+    cfg->HISTORY[historyName] = make_shared<HistoryArchive>(historyName, historyGetCmd,
+                                                            historyPutCmd, historyMkdirCmd);
 
     return cfg;
 }
 
 void
-reportBenchmark(Benchmark& benchmark)
+reportBenchmark(Benchmark::Metrics& metrics)
 {
+    using namespace std;
+    CLOG(INFO, LOGGER_ID) << "Benchmark metrics:" << endl
+                          << "time spent: " << metrics.benchmarkTimer.count() << endl
+                          << "txs count: " << metrics.txsCount.count() << endl;
 }
 
 TEST_CASE("stellar-core benchmark's initialization", "[benchmark][initialize]")
@@ -115,5 +129,5 @@ TEST_CASE("stellar-core's benchmark", "[benchmark]")
     }
     app->gracefulStop();
 
-    reportBenchmark(*benchmark);
+    reportBenchmark(*metrics);
 }

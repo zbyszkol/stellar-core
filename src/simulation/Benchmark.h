@@ -47,7 +47,7 @@ public:
     virtual LoadGenerator::AccountInfoPtr pickRandomAccount(AccountInfoPtr tryToAvoid, uint32_t ledgerNum) override;
     // std::vector<LoadGenerator::AccountInfoPtr>
     void createAccountsDirectly(Application& app, size_t n);
-    void createAccounts(Application& app, size_t n);
+    void createAccountsUsingLedgerManager(Application& app, size_t n);
     void createAccountsUsingTransactions(Application& app, size_t n);
 
 private:

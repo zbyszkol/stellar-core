@@ -23,7 +23,7 @@ const char* Benchmark::LOGGER_ID = "LoadGen";
 size_t Benchmark::MAXIMAL_NUMBER_OF_TXS_PER_LEDGER = 1000;
 
 Benchmark::Benchmark(Hash const& networkID)
-    : LoadGenerator(networkID), mIsRunning(false), mNumberOfInitialAccounts(10000), mTxRate(MAXIMAL_NUMBER_OF_TXS_PER_LEDGER / 5)
+    : LoadGenerator(networkID), mIsRunning(false), mNumberOfInitialAccounts(1000000), mTxRate(MAXIMAL_NUMBER_OF_TXS_PER_LEDGER)
 {
 }
 
@@ -33,13 +33,18 @@ Benchmark::startBenchmark(Application& app)
     mIsRunning = true;
     using namespace std;
     shared_ptr<Benchmark::Metrics> metrics{ initializeMetrics(app.getMetrics()) };
-
-    std::function<bool()> load = [this, &app, metrics] () -> bool {
+    auto lastLedgerNum = app.getLedgerManager().getLedgerNum();
+    lastLedgerNum = lastLedgerNum == 0 ? 0 : lastLedgerNum-1;
+    std::function<bool()> load = [this, &app, metrics, lastLedgerNum] () mutable {
         if (!this->mIsRunning)
         {
             return false;
         }
-        generateLoadForBenchmark(app, this->mTxRate, *metrics);
+        if (lastLedgerNum < app.getLedgerManager().getLedgerNum())
+        {
+            generateLoadForBenchmark(app, this->mTxRate, *metrics);
+            lastLedgerNum = app.getLedgerManager().getLedgerNum();
+        }
 
         return true;
     };
@@ -82,18 +87,11 @@ Benchmark::generateLoadForBenchmark(Application& app, uint32_t txRate, Metrics& 
         txRate = 1;
     }
 
-    uint32_t txPerStep = (txRate * LoadGenerator::STEP_MSECS / 1000);
-
-    if (txPerStep == 0)
-    {
-        txPerStep = 1;
-    }
-    CLOG(TRACE, LOGGER_ID) << "Generating " << txPerStep << "transactions per step";
+    CLOG(TRACE, LOGGER_ID) << "Generating " << txRate << "transactions per step";
 
     uint32_t ledgerNum = app.getLedgerManager().getLedgerNum();
     std::vector<LoadGenerator::TxInfo> txs;
-
-    for (uint32_t it = 0; it < txPerStep; ++it)
+    for (uint32_t it = 0; it < txRate; ++it)
     {
         txs.push_back(createRandomTransaction(0.5, ledgerNum));
     }
@@ -109,11 +107,14 @@ Benchmark::generateLoadForBenchmark(Application& app, uint32_t txRate, Metrics& 
 
     metrics.txsCount.inc(txs.size());
 
+    CLOG(TRACE, LOGGER_ID) << txRate << " transactions generated in single step";
+
+
     return true;
 }
 
 void
-Benchmark::createAccounts(Application& app, size_t n)
+Benchmark::createAccountsUsingLedgerManager(Application& app, size_t n)
 {
     auto accountsLeft = mNumberOfInitialAccounts;
     TxMetrics txm(app.getMetrics());

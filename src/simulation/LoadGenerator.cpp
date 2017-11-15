@@ -126,14 +126,7 @@ LoadGenerator::scheduleLoad(Application& app, std::function<bool()> loadGenerato
     {
         mLoadTimer = make_unique<VirtualTimer>(app.getClock());
     }
-    auto deadline = std::chrono::milliseconds(STEP_MSECS);
-    // if (app.getState() != Application::APP_SYNCED_STATE)
-    // {
-    //     CLOG(WARNING, "LoadGen")
-    //         << "Application is not in sync, load generation inhibited.";
-    //     std::chrono::seconds(10);
-
-    // }
+    const auto deadline = std::chrono::milliseconds(STEP_MSECS);
     mLoadTimer->expires_from_now(deadline);
     mLoadTimer->async_wait([this, &app, loadGenerator](asio::error_code const& error) {
             if (!error)
