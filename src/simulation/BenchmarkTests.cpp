@@ -5,7 +5,6 @@
 #include "simulation/Benchmark.h"
 #include "history/HistoryArchive.h"
 #include "lib/catch.hpp"
-#include "main/PersistentState.h"
 #include "medida/metric_processor.h"
 #include "medida/reporting/json_reporter.h"
 #include "test/test.h"
