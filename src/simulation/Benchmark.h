@@ -43,13 +43,13 @@ public:
         Metrics(medida::MetricsRegistry& registry);
         friend class Benchmark;
     };
+
     Benchmark(Hash const& networkID);
     void prepareBenchmark(Application& app);
     void initializeBenchmark(Application& app, uint32_t ledgerNum);
     std::shared_ptr<Metrics> startBenchmark(Application& app);
     std::shared_ptr<Metrics> stopBenchmark(std::shared_ptr<Metrics> metrics);
     virtual LoadGenerator::AccountInfoPtr pickRandomAccount(AccountInfoPtr tryToAvoid, uint32_t ledgerNum) override;
-    // std::vector<LoadGenerator::AccountInfoPtr>
     void createAccountsDirectly(Application& app, size_t n);
     void createAccountsUsingLedgerManager(Application& app, size_t n);
     void createAccountsUsingTransactions(Application& app, size_t n);
@@ -67,5 +67,4 @@ private:
 
     static const char* LOGGER_ID;
 };
-
 }
