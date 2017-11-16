@@ -18,12 +18,12 @@
 namespace stellar
 {
 
-const char* Benchmark::LOGGER_ID = "LoadGen";
+const char* Benchmark::LOGGER_ID = "Benchmark";
 
 size_t Benchmark::MAXIMAL_NUMBER_OF_TXS_PER_LEDGER = 1000;
 
 Benchmark::Benchmark(Hash const& networkID)
-    : LoadGenerator(networkID), mIsRunning(false), mNumberOfInitialAccounts(1000000), mTxRate(MAXIMAL_NUMBER_OF_TXS_PER_LEDGER)
+    : LoadGenerator(networkID), mIsRunning(false), mNumberOfInitialAccounts(10000), mTxRate(MAXIMAL_NUMBER_OF_TXS_PER_LEDGER)
 {
 }
 
@@ -48,7 +48,7 @@ Benchmark::startBenchmark(Application& app)
 
         return true;
     };
-    metrics->benchmarkTimeContext.Reset();
+    metrics->benchmarkTimeContext = make_unique<medida::TimerContext>(metrics->benchmarkTimer.TimeScope());
     load();
     scheduleLoad(app, load);
 
@@ -58,22 +58,20 @@ Benchmark::startBenchmark(Application& app)
 std::unique_ptr<Benchmark::Metrics>
 Benchmark::initializeMetrics(medida::MetricsRegistry& registry)
 {
-    return make_unique<Benchmark::Metrics>(registry);
+    return make_unique<Benchmark::Metrics>(Benchmark::Metrics(registry));
 }
 
 Benchmark::Metrics::Metrics(medida::MetricsRegistry& registry)
     : benchmarkTimer(registry.NewTimer({ "benchmark", "overall", "time" })),
-      benchmarkTimeContext(benchmarkTimer.TimeScope()),
       txsCount(registry.NewCounter({ "benchmark", "txs", "count" }))
 {
-    benchmarkTimeContext.Stop();
 }
 
 std::shared_ptr<Benchmark::Metrics>
 Benchmark::stopBenchmark(std::shared_ptr<Benchmark::Metrics> metrics)
 {
     mIsRunning = false;
-    metrics->benchmarkTimeContext.Stop();
+    metrics->timeSpent = metrics->benchmarkTimeContext->Stop();
     return metrics;
 }
 

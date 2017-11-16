@@ -7,11 +7,13 @@
 #include "main/PersistentState.h"
 #include "history/HistoryArchive.h"
 #include "util/Logging.h"
-
+#include <memory>
+#include "medida/metric_processor.h"
+#include "medida/reporting/json_reporter.h"
 
 using namespace stellar;
 
-const char* LOGGER_ID = "LoadGen";
+const char* LOGGER_ID = "Benchmark";
 
 std::unique_ptr<Benchmark>
 initializeBenchmark(Application& app)
@@ -82,12 +84,33 @@ initializeConfig()
 }
 
 void
-reportBenchmark(Benchmark::Metrics& metrics)
+reportBenchmark(Benchmark::Metrics& metrics, Application& app)
 {
+    class ReportProcessor : public medida::MetricProcessor {
+    public:
+        virtual ~ReportProcessor() = default;
+        virtual void Process(medida::Timer& timer) {
+            count = timer.count();
+        }
+
+        std::uint64_t count;
+
+    };
     using namespace std;
-    CLOG(INFO, LOGGER_ID) << "Benchmark metrics:" << endl
-                          << "time spent: " << metrics.benchmarkTimer.count() << endl
-                          << "txs count: " << metrics.txsCount.count() << endl;
+    // "ledger", "transaction", "apply"
+    auto externalizedTxs = app.getMetrics().GetAllMetrics()[{"ledger", "transaction", "apply"}];
+    ReportProcessor processor;
+    externalizedTxs->Process(processor);
+    auto txsExternalized = processor.count;
+
+    CLOG(INFO, LOGGER_ID) << endl
+                          << "Benchmark metrics:" << endl
+                          << "  time spent: " << metrics.timeSpent.count() << endl
+                          << "  txs submitted: " << metrics.txsCount.count() << endl
+                          << "  txs externalized: " << txsExternalized << endl;
+
+    medida::reporting::JsonReporter jr(app.getMetrics());
+    CLOG(INFO, LOGGER_ID) <<   jr.Report() << endl;
 }
 
 TEST_CASE("stellar-core benchmark's initialization", "[benchmark][initialize]")
@@ -104,7 +127,7 @@ TEST_CASE("stellar-core benchmark's initialization", "[benchmark][initialize]")
 
 TEST_CASE("stellar-core's benchmark", "[benchmark]")
 {
-    auto testDuration = std::chrono::seconds(3600);
+    auto testDuration = std::chrono::seconds(10);
 
     VirtualClock clock(VirtualClock::REAL_TIME);
     std::unique_ptr<Config> cfg = initializeConfig();
@@ -129,5 +152,5 @@ TEST_CASE("stellar-core's benchmark", "[benchmark]")
     }
     app->gracefulStop();
 
-    reportBenchmark(*metrics);
+    reportBenchmark(*metrics, *app);
 }

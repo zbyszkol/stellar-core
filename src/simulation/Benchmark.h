@@ -13,6 +13,7 @@
 #include "medida/metrics_registry.h"
 #include "medida/counter.h"
 #include <memory>
+#include <chrono>
 
 namespace medida
 {
@@ -27,18 +28,21 @@ namespace stellar
 
 class Benchmark : private LoadGenerator
 {
+private:
+
 public:
     static size_t MAXIMAL_NUMBER_OF_TXS_PER_LEDGER;
 
     struct Metrics
     {
-        Metrics(medida::MetricsRegistry& registry);
-
         medida::Timer& benchmarkTimer;
-        medida::TimerContext benchmarkTimeContext;
+        std::unique_ptr<medida::TimerContext> benchmarkTimeContext;
         medida::Counter& txsCount;
+        std::chrono::nanoseconds timeSpent;
+    private:
+        Metrics(medida::MetricsRegistry& registry);
+        friend class Benchmark;
     };
-
     Benchmark(Hash const& networkID);
     void prepareBenchmark(Application& app);
     void initializeBenchmark(Application& app, uint32_t ledgerNum);
