@@ -97,7 +97,6 @@ reportBenchmark(Benchmark::Metrics& metrics, Application& app)
 
     };
     using namespace std;
-    // "ledger", "transaction", "apply"
     auto externalizedTxs = app.getMetrics().GetAllMetrics()[{"ledger", "transaction", "apply"}];
     ReportProcessor processor;
     externalizedTxs->Process(processor);
@@ -105,7 +104,7 @@ reportBenchmark(Benchmark::Metrics& metrics, Application& app)
 
     CLOG(INFO, LOGGER_ID) << endl
                           << "Benchmark metrics:" << endl
-                          << "  time spent: " << metrics.timeSpent.count() << endl
+                          << "  time spent: " << metrics.timeSpent.count() << " nanoseconds" << endl
                           << "  txs submitted: " << metrics.txsCount.count() << endl
                           << "  txs externalized: " << txsExternalized << endl;
 
@@ -118,7 +117,6 @@ TEST_CASE("stellar-core benchmark's initialization", "[benchmark][initialize]")
     std::unique_ptr<Config> cfg = initializeConfig();
     VirtualClock clock(VirtualClock::REAL_TIME);
     Application::pointer app = Application::create(clock, *cfg, false);
-    // app->start();
     app->applyCfgCommands();
     prepareBenchmark(*app);
     app->getHistoryManager().queueCurrentHistory();

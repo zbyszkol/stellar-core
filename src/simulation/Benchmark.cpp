@@ -98,7 +98,7 @@ Benchmark::generateLoadForBenchmark(Application& app, uint32_t txRate, Metrics& 
     {
         if (!tx.execute(app))
         {
-            CLOG(ERROR, LOGGER_ID) << "Error while executing a transaction";
+            CLOG(ERROR, LOGGER_ID) << "Error while executing a transaction: transaction rejected";
             return false;
         }
     }
@@ -135,7 +135,6 @@ Benchmark::createAccountsUsingLedgerManager(Application& app, size_t n)
 
         for (AccountInfoPtr& account : newAccounts) {
             TxInfo tx = account->creationTransaction();
-            // bool result = tx.execute(app);
             tx.toTransactionFrames(app, txFrames, txm);
             tx.recordExecution(app.getConfig().DESIRED_BASE_FEE);
 
@@ -255,7 +254,6 @@ Benchmark::prepareBenchmark(Application& app)
 void
 Benchmark::initializeBenchmark(Application& app, uint32_t ledgerNum)
 {
-    // TODO create in-memory accounts
     mAccounts = LoadGenerator::createAccounts(mNumberOfInitialAccounts,  ledgerNum);
     mRandomIterator = shuffleAccounts(mAccounts);
 }
