@@ -3,16 +3,16 @@
 // of this distribution or at http://www.apache.org/licenses/LICENSE-2.0
 
 #include "simulation/Benchmark.h"
-#include "lib/catch.hpp"
-#include "test/test.h"
-#include "util/Timer.h"
-#include "util/make_unique.h"
-#include "main/PersistentState.h"
 #include "history/HistoryArchive.h"
-#include "util/Logging.h"
-#include <memory>
+#include "lib/catch.hpp"
+#include "main/PersistentState.h"
 #include "medida/metric_processor.h"
 #include "medida/reporting/json_reporter.h"
+#include "test/test.h"
+#include "util/Logging.h"
+#include "util/Timer.h"
+#include "util/make_unique.h"
+#include <memory>
 
 using namespace stellar;
 
@@ -22,7 +22,8 @@ std::unique_ptr<Benchmark>
 initializeBenchmark(Application& app)
 {
     auto benchmark = make_unique<Benchmark>(app.getNetworkID());
-    benchmark->initializeBenchmark(app, app.getLedgerManager().getLedgerNum() - 1);
+    benchmark->initializeBenchmark(app,
+                                   app.getLedgerManager().getLedgerNum() - 1);
     return benchmark;
 }
 
@@ -37,10 +38,12 @@ std::unique_ptr<Config>
 initializeConfig()
 {
     std::unique_ptr<Config> cfg = make_unique<Config>(getTestConfig());
-    cfg->DATABASE = SecretValue{"postgresql://dbname=core user=stellar password=__PGPASS__ host=localhost"};
-    cfg->PUBLIC_HTTP_PORT=true;
+    cfg->DATABASE = SecretValue{"postgresql://dbname=core user=stellar "
+                                "password=__PGPASS__ host=localhost"};
+    cfg->PUBLIC_HTTP_PORT = true;
     cfg->COMMANDS.push_back("ll?level=info");
-    cfg->DESIRED_MAX_TX_PER_LEDGER = Benchmark::MAXIMAL_NUMBER_OF_TXS_PER_LEDGER;
+    cfg->DESIRED_MAX_TX_PER_LEDGER =
+        Benchmark::MAXIMAL_NUMBER_OF_TXS_PER_LEDGER;
     cfg->FORCE_SCP = true;
     cfg->RUN_STANDALONE = false;
     cfg->BUCKET_DIR_PATH = "buckets";
@@ -50,8 +53,8 @@ initializeConfig()
     const string historyGetCmd = "cp history/vs/{0} {1}";
     const string historyPutCmd = "cp {0} history/vs/{1}";
     const string historyMkdirCmd = "mkdir -p history/vs/{0}";
-    cfg->HISTORY[historyName] = make_shared<HistoryArchive>(historyName, historyGetCmd,
-                                                            historyPutCmd, historyMkdirCmd);
+    cfg->HISTORY[historyName] = make_shared<HistoryArchive>(
+        historyName, historyGetCmd, historyPutCmd, historyMkdirCmd);
 
     return cfg;
 }
@@ -59,30 +62,35 @@ initializeConfig()
 void
 reportBenchmark(Benchmark::Metrics& metrics, Application& app)
 {
-    class ReportProcessor : public medida::MetricProcessor {
-    public:
+    class ReportProcessor : public medida::MetricProcessor
+    {
+      public:
         virtual ~ReportProcessor() = default;
-        virtual void Process(medida::Timer& timer) {
+        virtual void
+        Process(medida::Timer& timer)
+        {
             count = timer.count();
         }
 
         std::uint64_t count;
-
     };
     using namespace std;
-    auto externalizedTxs = app.getMetrics().GetAllMetrics()[{"ledger", "transaction", "apply"}];
+    auto externalizedTxs =
+        app.getMetrics().GetAllMetrics()[{"ledger", "transaction", "apply"}];
     ReportProcessor processor;
     externalizedTxs->Process(processor);
     auto txsExternalized = processor.count;
 
     CLOG(INFO, LOGGER_ID) << endl
                           << "Benchmark metrics:" << endl
-                          << "  time spent: " << metrics.timeSpent.count() << " nanoseconds" << endl
-                          << "  txs submitted: " << metrics.txsCount.count() << endl
+                          << "  time spent: " << metrics.timeSpent.count()
+                          << " nanoseconds" << endl
+                          << "  txs submitted: " << metrics.txsCount.count()
+                          << endl
                           << "  txs externalized: " << txsExternalized << endl;
 
     medida::reporting::JsonReporter jr(app.getMetrics());
-    CLOG(INFO, LOGGER_ID) <<   jr.Report() << endl;
+    CLOG(INFO, LOGGER_ID) << jr.Report() << endl;
 }
 
 TEST_CASE("stellar-core benchmark's initialization", "[benchmark][initialize]")
@@ -112,7 +120,8 @@ TEST_CASE("stellar-core's benchmark", "[benchmark]")
     VirtualTimer timer{clock};
     auto metrics = benchmark->startBenchmark(*app);
     timer.expires_from_now(testDuration);
-    timer.async_wait([&benchmark, &done, &metrics](asio::error_code const& error) {
+    timer.async_wait(
+        [&benchmark, &done, &metrics](asio::error_code const& error) {
             metrics = benchmark->stopBenchmark(metrics);
             done = true;
         });

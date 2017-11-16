@@ -4,16 +4,16 @@
 
 #include "simulation/Benchmark.h"
 
-#include <algorithm>
-#include <vector>
-#include <functional>
-#include <random>
-#include "util/Logging.h"
 #include "bucket/BucketManager.h"
-#include "ledger/LedgerDelta.h"
 #include "database/Database.h"
+#include "ledger/LedgerDelta.h"
+#include "util/Logging.h"
 #include "util/make_unique.h"
+#include <algorithm>
+#include <functional>
 #include <memory>
+#include <random>
+#include <vector>
 
 namespace stellar
 {
@@ -23,7 +23,10 @@ const char* Benchmark::LOGGER_ID = "Benchmark";
 size_t Benchmark::MAXIMAL_NUMBER_OF_TXS_PER_LEDGER = 1000;
 
 Benchmark::Benchmark(Hash const& networkID)
-    : LoadGenerator(networkID), mIsRunning(false), mNumberOfInitialAccounts(10000), mTxRate(MAXIMAL_NUMBER_OF_TXS_PER_LEDGER)
+    : LoadGenerator(networkID)
+    , mIsRunning(false)
+    , mNumberOfInitialAccounts(10000)
+    , mTxRate(MAXIMAL_NUMBER_OF_TXS_PER_LEDGER)
 {
 }
 
@@ -32,10 +35,11 @@ Benchmark::startBenchmark(Application& app)
 {
     mIsRunning = true;
     using namespace std;
-    shared_ptr<Benchmark::Metrics> metrics{ initializeMetrics(app.getMetrics()) };
+    shared_ptr<Benchmark::Metrics> metrics{initializeMetrics(app.getMetrics())};
     auto lastLedgerNum = app.getLedgerManager().getLedgerNum();
-    lastLedgerNum = lastLedgerNum == 0 ? 0 : lastLedgerNum-1;
-    std::function<bool()> load = [this, &app, metrics, lastLedgerNum] () mutable {
+    lastLedgerNum = lastLedgerNum == 0 ? 0 : lastLedgerNum - 1;
+    std::function<bool()> load = [this, &app, metrics,
+                                  lastLedgerNum]() mutable {
         if (!this->mIsRunning)
         {
             return false;
@@ -48,7 +52,8 @@ Benchmark::startBenchmark(Application& app)
 
         return true;
     };
-    metrics->benchmarkTimeContext = make_unique<medida::TimerContext>(metrics->benchmarkTimer.TimeScope());
+    metrics->benchmarkTimeContext =
+        make_unique<medida::TimerContext>(metrics->benchmarkTimer.TimeScope());
     load();
     scheduleLoad(app, load);
 
@@ -62,8 +67,8 @@ Benchmark::initializeMetrics(medida::MetricsRegistry& registry)
 }
 
 Benchmark::Metrics::Metrics(medida::MetricsRegistry& registry)
-    : benchmarkTimer(registry.NewTimer({ "benchmark", "overall", "time" })),
-      txsCount(registry.NewCounter({ "benchmark", "txs", "count" }))
+    : benchmarkTimer(registry.NewTimer({"benchmark", "overall", "time"}))
+    , txsCount(registry.NewCounter({"benchmark", "txs", "count"}))
 {
 }
 
@@ -76,7 +81,8 @@ Benchmark::stopBenchmark(std::shared_ptr<Benchmark::Metrics> metrics)
 }
 
 bool
-Benchmark::generateLoadForBenchmark(Application& app, uint32_t txRate, Metrics& metrics)
+Benchmark::generateLoadForBenchmark(Application& app, uint32_t txRate,
+                                    Metrics& metrics)
 {
     updateMinBalance(app);
 
@@ -85,7 +91,8 @@ Benchmark::generateLoadForBenchmark(Application& app, uint32_t txRate, Metrics& 
         txRate = 1;
     }
 
-    CLOG(TRACE, LOGGER_ID) << "Generating " << txRate << "transactions per step";
+    CLOG(TRACE, LOGGER_ID) << "Generating " << txRate
+                           << "transactions per step";
 
     uint32_t ledgerNum = app.getLedgerManager().getLedgerNum();
     std::vector<LoadGenerator::TxInfo> txs;
@@ -98,15 +105,16 @@ Benchmark::generateLoadForBenchmark(Application& app, uint32_t txRate, Metrics& 
     {
         if (!tx.execute(app))
         {
-            CLOG(ERROR, LOGGER_ID) << "Error while executing a transaction: transaction rejected";
+            CLOG(ERROR, LOGGER_ID)
+                << "Error while executing a transaction: transaction rejected";
             return false;
         }
     }
 
     metrics.txsCount.inc(txs.size());
 
-    CLOG(TRACE, LOGGER_ID) << txRate << " transactions generated in single step";
-
+    CLOG(TRACE, LOGGER_ID) << txRate
+                           << " transactions generated in single step";
 
     return true;
 }
@@ -119,7 +127,7 @@ Benchmark::createAccountsUsingLedgerManager(Application& app, size_t n)
     LedgerManager& ledger = app.getLedgerManager();
     auto ledgerNum = ledger.getLedgerNum();
     StellarValue value(ledger.getLastClosedLedgerHeader().hash, ledgerNum,
-                    emptyUpgradeSteps, 0);
+                       emptyUpgradeSteps, 0);
 
     while (accountsLeft > 0)
     {
@@ -128,19 +136,21 @@ Benchmark::createAccountsUsingLedgerManager(Application& app, size_t n)
             ledger.getLastClosedLedgerHeader().hash);
 
         std::vector<TransactionFramePtr> txFrames;
-        auto batchSize = std::min(accountsLeft, MAXIMAL_NUMBER_OF_TXS_PER_LEDGER);
+        auto batchSize =
+            std::min(accountsLeft, MAXIMAL_NUMBER_OF_TXS_PER_LEDGER);
 
         std::vector<LoadGenerator::AccountInfoPtr> newAccounts =
             LoadGenerator::createAccounts(batchSize, ledgerNum);
 
-        for (AccountInfoPtr& account : newAccounts) {
+        for (AccountInfoPtr& account : newAccounts)
+        {
             TxInfo tx = account->creationTransaction();
             tx.toTransactionFrames(app, txFrames, txm);
             tx.recordExecution(app.getConfig().DESIRED_BASE_FEE);
-
         }
 
-        for (TransactionFramePtr txFrame : txFrames) {
+        for (TransactionFramePtr txFrame : txFrames)
+        {
             txSet->add(txFrame);
         }
 
@@ -157,11 +167,15 @@ void
 Benchmark::createAccountsUsingTransactions(Application& app, size_t n)
 {
     auto ledgerNum = app.getLedgerManager().getLedgerNum();
-    std::vector<LoadGenerator::AccountInfoPtr> newAccounts = LoadGenerator::createAccounts(n, ledgerNum);
-    for (LoadGenerator::AccountInfoPtr account : newAccounts) {
+    std::vector<LoadGenerator::AccountInfoPtr> newAccounts =
+        LoadGenerator::createAccounts(n, ledgerNum);
+    for (LoadGenerator::AccountInfoPtr account : newAccounts)
+    {
         LoadGenerator::TxInfo tx = account->creationTransaction();
-        if (!tx.execute(app)) {
-            CLOG(ERROR, LOGGER_ID) << "Error while executing CREATE_ACCOUNT transaction";
+        if (!tx.execute(app))
+        {
+            CLOG(ERROR, LOGGER_ID)
+                << "Error while executing CREATE_ACCOUNT transaction";
         }
     }
 }
@@ -177,17 +191,20 @@ Benchmark::createAccountsDirectly(Application& app, size_t n)
 
     int64_t balanceDiff = 0;
     std::vector<LedgerEntry> live;
-    std::transform(createdAccounts.begin(), createdAccounts.end(), std::back_inserter(live),
-                   [&app, &balanceDiff] (LoadGenerator::AccountInfoPtr const& account)
-                   {
-                       AccountFrame aFrame = account->createDirectly(app);
-                       balanceDiff += aFrame.getBalance();
-                       return aFrame.mEntry;
-                   });
+    std::transform(
+        createdAccounts.begin(), createdAccounts.end(),
+        std::back_inserter(live),
+        [&app, &balanceDiff](LoadGenerator::AccountInfoPtr const& account) {
+            AccountFrame aFrame = account->createDirectly(app);
+            balanceDiff += aFrame.getBalance();
+            return aFrame.mEntry;
+        });
 
     SecretKey skey = SecretKey::fromSeed(app.getNetworkID());
-    AccountFrame::pointer masterAccount = AccountFrame::loadAccount(skey.getPublicKey(), app.getDatabase());
-    LedgerDelta delta(app.getLedgerManager().getCurrentLedgerHeader(), app.getDatabase());
+    AccountFrame::pointer masterAccount =
+        AccountFrame::loadAccount(skey.getPublicKey(), app.getDatabase());
+    LedgerDelta delta(app.getLedgerManager().getCurrentLedgerHeader(),
+                      app.getDatabase());
     masterAccount->addBalance(-balanceDiff);
     masterAccount->touch(ledger);
     masterAccount->storeChange(delta, app.getDatabase());
@@ -198,8 +215,8 @@ Benchmark::createAccountsDirectly(Application& app, size_t n)
     live.insert(live.end(), liveEntries.begin(), liveEntries.end());
     app.getBucketManager().addBatch(app, ledger, live, {});
 
-    StellarValue sv(app.getLedgerManager().getLastClosedLedgerHeader().hash, ledger,
-                    emptyUpgradeSteps, 0);
+    StellarValue sv(app.getLedgerManager().getLastClosedLedgerHeader().hash,
+                    ledger, emptyUpgradeSteps, 0);
     LedgerCloseData ledgerData = createData(app.getLedgerManager(), sv);
     app.getLedgerManager().closeLedger(ledgerData);
 
@@ -209,8 +226,8 @@ Benchmark::createAccountsDirectly(Application& app, size_t n)
 void
 Benchmark::setMaxTxSize(LedgerManager& ledger, uint32_t maxTxSetSize)
 {
-    StellarValue sv(ledger.getLastClosedLedgerHeader().hash, ledger.getLedgerNum(),
-                    emptyUpgradeSteps, 0);
+    StellarValue sv(ledger.getLastClosedLedgerHeader().hash,
+                    ledger.getLedgerNum(), emptyUpgradeSteps, 0);
     {
         LedgerUpgrade up(LEDGER_UPGRADE_MAX_TX_SET_SIZE);
         up.newMaxTxSetSize() = maxTxSetSize;
@@ -225,8 +242,8 @@ LedgerCloseData
 Benchmark::createData(LedgerManager& ledger, StellarValue& value)
 {
     auto ledgerNum = ledger.getLedgerNum();
-    TxSetFramePtr txSet = std::make_shared<TxSetFrame>(
-        ledger.getLastClosedLedgerHeader().hash);
+    TxSetFramePtr txSet =
+        std::make_shared<TxSetFrame>(ledger.getLastClosedLedgerHeader().hash);
     value.txSetHash = txSet->getContentsHash();
     return LedgerCloseData{ledgerNum, txSet, value};
 }
@@ -254,7 +271,8 @@ Benchmark::prepareBenchmark(Application& app)
 void
 Benchmark::initializeBenchmark(Application& app, uint32_t ledgerNum)
 {
-    mAccounts = LoadGenerator::createAccounts(mNumberOfInitialAccounts,  ledgerNum);
+    mAccounts =
+        LoadGenerator::createAccounts(mNumberOfInitialAccounts, ledgerNum);
     mRandomIterator = shuffleAccounts(mAccounts);
 }
 
@@ -269,7 +287,8 @@ Benchmark::shuffleAccounts(std::vector<LoadGenerator::AccountInfoPtr>& accounts)
 LoadGenerator::AccountInfoPtr
 Benchmark::pickRandomAccount(AccountInfoPtr tryToAvoid, uint32_t ledgerNum)
 {
-    if (mRandomIterator == mAccounts.end()) {
+    if (mRandomIterator == mAccounts.end())
+    {
         mRandomIterator = mAccounts.begin();
     }
     auto result = *mRandomIterator;

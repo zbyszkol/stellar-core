@@ -3,6 +3,7 @@
 // of this distribution or at http://www.apache.org/licenses/LICENSE-2.0
 
 #include "simulation/LoadGenerator.h"
+#include "bucket/BucketManager.h"
 #include "herder/Herder.h"
 #include "ledger/LedgerDelta.h"
 #include "ledger/LedgerManager.h"
@@ -15,7 +16,6 @@
 #include "util/Timer.h"
 #include "util/make_unique.h"
 #include "util/types.h"
-#include "bucket/BucketManager.h"
 
 #include "database/Database.h"
 
@@ -120,7 +120,8 @@ LoadGenerator::scheduleLoadGeneration(Application& app, uint32_t nAccounts,
 }
 
 void
-LoadGenerator::scheduleLoad(Application& app, std::function<bool()> loadGenerator)
+LoadGenerator::scheduleLoad(Application& app,
+                            std::function<bool()> loadGenerator)
 {
     if (!mLoadTimer)
     {
@@ -128,7 +129,8 @@ LoadGenerator::scheduleLoad(Application& app, std::function<bool()> loadGenerato
     }
     const auto deadline = std::chrono::milliseconds(STEP_MSECS);
     mLoadTimer->expires_from_now(deadline);
-    mLoadTimer->async_wait([this, &app, loadGenerator](asio::error_code const& error) {
+    mLoadTimer->async_wait(
+        [this, &app, loadGenerator](asio::error_code const& error) {
             if (!error)
             {
                 if (loadGenerator())

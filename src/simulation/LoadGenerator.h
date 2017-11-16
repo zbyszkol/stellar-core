@@ -8,8 +8,8 @@
 #include "main/Application.h"
 #include "test/TxTests.h"
 #include "xdr/Stellar-types.h"
-#include <vector>
 #include <functional>
+#include <vector>
 
 namespace medida
 {
@@ -68,7 +68,8 @@ class LoadGenerator
 
     std::vector<TxInfo> accountCreationTransactions(size_t n);
     AccountInfoPtr createAccount(size_t i, uint32_t ledgerNum = 0);
-    std::vector<AccountInfoPtr> createAccounts(size_t n, uint32_t ledgerNum = 0);
+    std::vector<AccountInfoPtr> createAccounts(size_t n,
+                                               uint32_t ledgerNum = 0);
     void createAccountsDirectly(Application& app, size_t n);
 
     bool loadAccount(Application& app, AccountInfo& account);
@@ -84,7 +85,7 @@ class LoadGenerator
                                     std::vector<AccountInfoPtr> const& path);
 
     virtual AccountInfoPtr pickRandomAccount(AccountInfoPtr tryToAvoid,
-                                     uint32_t ledgerNum);
+                                             uint32_t ledgerNum);
 
     AccountInfoPtr pickRandomPath(AccountInfoPtr from, uint32_t ledgerNum,
                                   std::vector<AccountInfoPtr>& path);
