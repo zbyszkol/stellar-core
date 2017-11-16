@@ -1,4 +1,7 @@
-// TODO base this on CoreTests.cpp.
+// Copyright 2017 Stellar Development Foundation and contributors. Licensed
+// under the Apache License, Version 2.0. See the COPYING file at the root
+// of this distribution or at http://www.apache.org/licenses/LICENSE-2.0
+
 #include "simulation/Benchmark.h"
 #include "lib/catch.hpp"
 #include "test/test.h"
@@ -33,37 +36,6 @@ prepareBenchmark(Application& app)
 std::unique_ptr<Config>
 initializeConfig()
 {
-    // HTTP_PORT=11626
-    // PUBLIC_HTTP_PORT=true
-    // RUN_STANDALONE=true
-    // ARTIFICIALLY_GENERATE_LOAD_FOR_TESTING=true
-    // DESIRED_MAX_TX_PER_LEDGER=1000
-
-    // NETWORK_PASSPHRASE="Test SDF Network ; September 2015"
-
-    // NODE_SEED="SDQVDISRYN2JXBS7ICL7QJAEKB3HWBJFP2QECXG7GZICAHBK4UNJCWK2 self"
-    // NODE_IS_VALIDATOR=true
-
-    // DATABASE="postgresql://dbname=core user=stellar password=__PGPASS__ host=localhost"
-    // # DATABASE="sqlite3://stellar.db"
-
-    // COMMANDS=["ll?level=info"]
-
-    // FAILURE_SAFETY=0
-    // UNSAFE_QUORUM=true
-    // #The public keys of the Stellar testnet servers
-    // [QUORUM_SET]
-    // THRESHOLD_PERCENT=100
-    // VALIDATORS=["$self"]
-
-    // [HISTORY.vs]
-    // get="cp /tmp/stellar-core/history/vs/{0} {1}"
-    // put="cp {0} /tmp/stellar-core/history/vs/{1}"
-    // mkdir="mkdir -p /tmp/stellar-core/history/vs/{0}"
-
-    // std::unique_ptr<Config> cfg = make_unique<Config>();
-    // cfg->load("stellar-core_benchmark.cfg");
-
     std::unique_ptr<Config> cfg = make_unique<Config>(getTestConfig());
     cfg->DATABASE = SecretValue{"postgresql://dbname=core user=stellar password=__PGPASS__ host=localhost"};
     cfg->PUBLIC_HTTP_PORT=true;
@@ -72,6 +44,7 @@ initializeConfig()
     cfg->FORCE_SCP = true;
     cfg->RUN_STANDALONE = false;
     cfg->BUCKET_DIR_PATH = "buckets";
+
     using namespace std;
     const string historyName = "benchmark";
     const string historyGetCmd = "cp history/vs/{0} {1}";
