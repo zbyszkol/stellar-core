@@ -123,6 +123,10 @@ void
 LoadGenerator::scheduleLoad(Application& app,
                             std::function<bool()> loadGenerator)
 {
+    if (app.isStopping())
+    {
+        return;
+    }
     if (!mLoadTimer)
     {
         mLoadTimer = make_unique<VirtualTimer>(app.getClock());

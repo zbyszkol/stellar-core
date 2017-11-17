@@ -46,7 +46,7 @@ Benchmark::startBenchmark(Application& app)
     lastLedgerNum = lastLedgerNum == 0 ? 0 : lastLedgerNum - 1;
     std::function<bool()> load = [this, &app, metrics,
                                   lastLedgerNum]() mutable {
-        if (!this->mIsRunning)
+        if (!this->mIsRunning || app.isStopping())
         {
             return false;
         }

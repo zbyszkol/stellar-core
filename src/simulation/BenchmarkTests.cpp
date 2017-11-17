@@ -5,8 +5,6 @@
 #include "simulation/Benchmark.h"
 #include "history/HistoryArchive.h"
 #include "lib/catch.hpp"
-#include "medida/metric_processor.h"
-#include "medida/reporting/json_reporter.h"
 #include "simulation/BenchmarkExecutor.h"
 #include "test/test.h"
 #include "util/Logging.h"
@@ -88,7 +86,7 @@ TEST_CASE("stellar-core's benchmark", "[benchmark]")
     timer.async_wait(
         [&benchmark, &done, app, metrics](asio::error_code const& error) {
             auto stopMetrics = benchmark->stopBenchmark(metrics);
-            BenchmarkExecutor().reportBenchmark(*metrics, *app);
+            BenchmarkExecutor().reportBenchmark(*metrics, app->getMetrics());
             done = true;
         });
 

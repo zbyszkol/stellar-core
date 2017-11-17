@@ -28,6 +28,7 @@ class Benchmark : private LoadGenerator
   private:
   public:
     static size_t MAXIMAL_NUMBER_OF_TXS_PER_LEDGER;
+    static const char* LOGGER_ID;
 
     struct Metrics
     {
@@ -67,7 +68,5 @@ class Benchmark : private LoadGenerator
     size_t mNumberOfInitialAccounts;
     uint32_t mTxRate;
     std::vector<AccountInfoPtr>::iterator mRandomIterator;
-
-    static const char* LOGGER_ID;
 };
 }
