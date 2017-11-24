@@ -264,7 +264,6 @@ Benchmark::prepareBenchmark(Application& app)
 
     initializeMetrics(app.getMetrics());
 
-    // app.newDB();
     setMaxTxSize(app.getLedgerManager(), MAXIMAL_NUMBER_OF_TXS_PER_LEDGER);
 
     populateAccounts(app, mNumberOfInitialAccounts);

@@ -31,6 +31,7 @@ BenchmarkExecutor::executeBenchmark(Application& app,
     // std::cout << testDuration.count() << std::endl;
 
     // benchmark->prepareBenchmark(app);
+
     mBenchmark->initializeBenchmark(app, app.getLedgerManager().getLedgerNum() - 1);
 
     VirtualTimer& timer = getTimer(app.getClock());

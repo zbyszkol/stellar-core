@@ -173,7 +173,8 @@ usage(int err = 1)
           "environment\n"
           "variable)\n"
           "      --test               Run self-tests\n"
-          "      --version            Print version information\n";
+          "      --version            Print version information\n"
+          "      --prepare-benchmark ACCOUNTS initializes accounts for benchmark";
     exit(err);
 }
 
@@ -380,6 +381,20 @@ parseLedgerCount(std::string const& str)
     return result;
 }
 
+static uint32_t
+parseNumberOfAccounts(std::string const& str)
+{
+    auto pos = std::size_t{0};
+    auto result = std::stoul(str, &pos);
+    if (pos < str.length())
+    {
+        throw std::runtime_error(
+            fmt::format("{} is not a valid ledger count", str));
+    }
+
+    return result;
+}
+
 static void
 setForceSCPFlag(Config const& cfg, bool isOn)
 {
@@ -483,7 +498,7 @@ writeQuorumGraph(Config const& cfg)
 }
 
 void
-populateBenchmark(Config& cfg)
+populateBenchmark(Config& cfg, uint32_t nAccounts)
 {
     VirtualClock clock(VirtualClock::REAL_TIME);
     Application::pointer app;
@@ -493,8 +508,25 @@ populateBenchmark(Config& cfg)
     {
         throw std::runtime_error{"Application not initialized"};
     }
-    app->newDB();
-    Benchmark(app->getNetworkID()).prepareBenchmark(*app);
+
+    bool done = false;
+    app->getLedgerManager().loadLastKnownLedger(
+        [&done](asio::error_code const& ec) {
+            if (ec)
+            {
+                throw std::runtime_error(
+                    "Unable to restore last-known ledger state");
+            }
+
+            done = true;
+        });
+    while (!done && clock.crank(true))
+    {
+    }
+
+    Benchmark benchmark(app->getNetworkID());
+    benchmark.setNumberOfInitialAccounts(nAccounts);
+    benchmark.prepareBenchmark(*app);
 }
 
 static void
@@ -604,6 +636,7 @@ main(int argc, char* const* argv)
     std::vector<std::string> newHistories;
     std::vector<std::string> metrics;
     bool prepareBenchmark = false;
+    uint32_t numberOfAccounts = 0;
 
     int opt;
     while ((opt = getopt_long_only(argc, argv, "c:", stellar_core_options,
@@ -713,6 +746,7 @@ main(int argc, char* const* argv)
             return 0;
         case OPT_PREPAREBENCHMARK:
             prepareBenchmark = true;
+            numberOfAccounts = parseNumberOfAccounts(optarg);
             break;
         case OPT_HELP:
         default:
@@ -755,7 +789,7 @@ main(int argc, char* const* argv)
 
         if (forceSCP || newDB || getOfflineInfo || !loadXdrBucket.empty() ||
             inferQuorum || graphQuorum || checkQuorum || doCatchupAt ||
-            doCatchupComplete || doCatchupRecent || doCatchupTo)
+            doCatchupComplete || doCatchupRecent || doCatchupTo || prepareBenchmark)
         {
             setNoListen(cfg);
             if (newDB)
@@ -781,7 +815,7 @@ main(int argc, char* const* argv)
             if (graphQuorum)
                 writeQuorumGraph(cfg);
             if (prepareBenchmark)
-                populateBenchmark(cfg);
+                populateBenchmark(cfg, numberOfAccounts);
             return 0;
         }
         else if (!newHistories.empty())
