@@ -5,6 +5,8 @@
 // of this distribution or at http://www.apache.org/licenses/LICENSE-2.0
 
 #include "main/Application.h"
+#include "medida/metric_processor.h"
+#include "medida/reporting/json_reporter.h"
 #include "simulation/Benchmark.h"
 #include "util/Timer.h"
 #include <chrono>
@@ -20,8 +22,6 @@ class BenchmarkExecutor
 
     void executeBenchmark(Application& app,
                           std::chrono::seconds testDuration);
-    void reportBenchmark(Benchmark::Metrics& metrics,
-                         medida::MetricsRegistry& metricsRegistry);
 
   private:
     VirtualTimer& getTimer(VirtualClock& clock);
@@ -29,5 +29,47 @@ class BenchmarkExecutor
     std::unique_ptr<VirtualTimer> mLoadTimer;
     std::unique_ptr<Benchmark> mBenchmark;
     static const char* LOGGER_ID;
+};
+
+class BenchmarkReporter
+{
+  public:
+    template<typename Stream>
+    void reportBenchmark(Benchmark::Metrics& metrics,
+                         medida::MetricsRegistry& metricsRegistry,
+                         Stream& str)
+        {
+            using namespace std;
+            class ReportProcessor : public medida::MetricProcessor
+            {
+            public:
+                virtual ~ReportProcessor() = default;
+                virtual void
+                Process(medida::Timer& timer)
+                    {
+                        count = timer.count();
+                    }
+
+                std::uint64_t count;
+            };
+            auto externalizedTxs =
+                metricsRegistry.GetAllMetrics()[{"ledger", "transaction", "apply"}];
+            ReportProcessor processor;
+            externalizedTxs->Process(processor);
+            auto txsExternalized = processor.count;
+
+            // CLOG(INFO, LOGGER_ID) << endl
+            str << endl
+                << "Benchmark metrics:" << endl
+                << "  time spent: " << metrics.timeSpent.count()
+                << " nanoseconds" << endl
+                << "  txs submitted: " << metrics.txsCount.count()
+                << endl
+                << "  txs externalized: " << txsExternalized << endl;
+
+            medida::reporting::JsonReporter jr(metricsRegistry);
+            // CLOG(INFO, LOGGER_ID) << jr.Report() << endl;
+            str << jr.Report() << endl;
+        }
 };
 }

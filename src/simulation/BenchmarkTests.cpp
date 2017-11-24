@@ -10,6 +10,7 @@
 #include "util/Logging.h"
 #include "util/Timer.h"
 #include "util/make_unique.h"
+#include <iostream>
 #include <memory>
 
 using namespace stellar;
@@ -87,7 +88,7 @@ TEST_CASE("stellar-core's benchmark", "[benchmark]")
     timer.async_wait(
         [&benchmark, &done, app](asio::error_code const& error) {
             auto stopMetrics = benchmark->stopBenchmark();
-            BenchmarkExecutor().reportBenchmark(stopMetrics, app->getMetrics());
+            BenchmarkReporter().reportBenchmark(stopMetrics, app->getMetrics(), std::cout);
             done = true;
         });
 

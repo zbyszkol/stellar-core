@@ -433,9 +433,9 @@ CommandHandler::benchmark(std::string const& params, std::string& retStr)
             return;
         }
 
-        auto benchmark = std::make_shared<Benchmark>(mApp.getNetworkID(), nAccounts, txRate);
-        BenchmarkExecutor executor;
-        executor.executeBenchmark(mApp, benchmark, std::chrono::seconds(duration));
+        auto benchmark = make_unique<Benchmark>(mApp.getNetworkID(), nAccounts, txRate);
+        BenchmarkExecutor executor(std::move(benchmark));
+        executor.executeBenchmark(mApp, std::chrono::seconds(duration));
 
         retStr = fmt::format(
             "Benchmark of stellar-core: {:d} accounts, {:d} txrate, {:d} minutes",

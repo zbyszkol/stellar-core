@@ -45,7 +45,7 @@ BenchmarkExecutor::executeBenchmark(Application& app,
         [this, &app](asio::error_code const& error) {
 
             auto metrics = mBenchmark->stopBenchmark();
-            reportBenchmark(metrics, app.getMetrics());
+            BenchmarkReporter().reportBenchmark(metrics, app.getMetrics(), CLOG(INFO, LOGGER_ID));
 
             app.getMetrics()
                 .NewMeter({"benchmark", "run", "complete"}, "run")
@@ -63,40 +63,5 @@ BenchmarkExecutor::getTimer(VirtualClock& clock)
         mLoadTimer = make_unique<VirtualTimer>(clock);
     }
     return *mLoadTimer;
-}
-
-void
-BenchmarkExecutor::reportBenchmark(Benchmark::Metrics& metrics,
-                                   medida::MetricsRegistry& metricsRegistry)
-{
-    class ReportProcessor : public medida::MetricProcessor
-    {
-      public:
-        virtual ~ReportProcessor() = default;
-        virtual void
-        Process(medida::Timer& timer)
-        {
-            count = timer.count();
-        }
-
-        std::uint64_t count;
-    };
-    using namespace std;
-    auto externalizedTxs =
-        metricsRegistry.GetAllMetrics()[{"ledger", "transaction", "apply"}];
-    ReportProcessor processor;
-    externalizedTxs->Process(processor);
-    auto txsExternalized = processor.count;
-
-    CLOG(INFO, LOGGER_ID) << endl
-                          << "Benchmark metrics:" << endl
-                          << "  time spent: " << metrics.timeSpent.count()
-                          << " nanoseconds" << endl
-                          << "  txs submitted: " << metrics.txsCount.count()
-                          << endl
-                          << "  txs externalized: " << txsExternalized << endl;
-
-    medida::reporting::JsonReporter jr(metricsRegistry);
-    CLOG(INFO, LOGGER_ID) << jr.Report() << endl;
 }
 }
