@@ -12,6 +12,7 @@
 #include "util/Timer.h"
 #include "util/make_unique.h"
 #include <chrono>
+#include <functional>
 #include <memory>
 
 namespace stellar
@@ -21,60 +22,38 @@ const char* BenchmarkExecutor::LOGGER_ID = Benchmark::LOGGER_ID;
 
 void
 BenchmarkExecutor::executeBenchmark(Application& app,
-                                    std::shared_ptr<Benchmark> benchmark,
-                                    std::chrono::seconds testDuration)
+                                    Benchmark::BenchmarkBuilder benchmarkBuilder,
+                                    std::chrono::seconds testDuration,
+                                    std::function<void(Benchmark::Metrics)> stopCallback)
 {
-    benchmark->prepareBenchmark(app);
-
-    VirtualClock clock(VirtualClock::REAL_TIME);
-    VirtualTimer timer{clock};
-    auto metrics = benchmark->startBenchmark(app);
-    timer.expires_from_now(testDuration);
+    VirtualTimer& timer = getTimer(app.getClock());
+    timer.expires_from_now(std::chrono::milliseconds{1});
     timer.async_wait(
-        [this, benchmark, &metrics, &app](asio::error_code const& error) {
+        [this, &app, benchmarkBuilder, testDuration, &timer, stopCallback](asio::error_code const& error) {
 
-            metrics = benchmark->stopBenchmark(metrics);
-            reportBenchmark(*metrics, app.getMetrics());
+            std::shared_ptr<Benchmark> benchmark{benchmarkBuilder.createBenchmark(app)};
+            benchmark->startBenchmark(app);
 
-            app.getMetrics()
-                .NewMeter({"benchmark", "run", "complete"}, "run")
-                .Mark();
-            CLOG(INFO, LOGGER_ID) << "Benchmark complete.";
+            auto stopProcedure = [benchmark, stopCallback](asio::error_code const& error) {
+
+                auto metrics = benchmark->stopBenchmark();
+                stopCallback(metrics);
+
+                CLOG(INFO, LOGGER_ID) << "Benchmark complete.";
+            };
+
+            timer.expires_from_now(testDuration);
+            timer.async_wait(stopProcedure);
         });
 }
 
-void
-BenchmarkExecutor::reportBenchmark(Benchmark::Metrics& metrics,
-                                   medida::MetricsRegistry& metricsRegistry)
+VirtualTimer&
+BenchmarkExecutor::getTimer(VirtualClock& clock)
 {
-    class ReportProcessor : public medida::MetricProcessor
+    if (!mLoadTimer)
     {
-      public:
-        virtual ~ReportProcessor() = default;
-        virtual void
-        Process(medida::Timer& timer)
-        {
-            count = timer.count();
-        }
-
-        std::uint64_t count;
-    };
-    using namespace std;
-    auto externalizedTxs =
-        metricsRegistry.GetAllMetrics()[{"ledger", "transaction", "apply"}];
-    ReportProcessor processor;
-    externalizedTxs->Process(processor);
-    auto txsExternalized = processor.count;
-
-    CLOG(INFO, LOGGER_ID) << endl
-                          << "Benchmark metrics:" << endl
-                          << "  time spent: " << metrics.timeSpent.count()
-                          << " nanoseconds" << endl
-                          << "  txs submitted: " << metrics.txsCount.count()
-                          << endl
-                          << "  txs externalized: " << txsExternalized << endl;
-
-    medida::reporting::JsonReporter jr(metricsRegistry);
-    CLOG(INFO, LOGGER_ID) << jr.Report() << endl;
+        mLoadTimer = make_unique<VirtualTimer>(clock);
+    }
+    return *mLoadTimer;
 }
 }
