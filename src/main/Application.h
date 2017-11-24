@@ -6,6 +6,7 @@
 
 #include "main/Config.h"
 #include "xdr/Stellar-types.h"
+#include <chrono>
 #include <memory>
 #include <string>
 
@@ -230,6 +231,10 @@ class Application
     // against the current application.
     virtual void generateLoad(uint32_t nAccounts, uint32_t nTxs,
                               uint32_t txRate, bool autoRate) = 0;
+
+    virtual void executeBenchmark(uint32_t nAccounts,
+                                  uint32_t txRate,
+                                  std::chrono::seconds testDuration);
 
     // Access the load generator for manual operation.
     virtual LoadGenerator& getLoadGenerator() = 0;

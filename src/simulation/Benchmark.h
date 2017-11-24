@@ -33,7 +33,6 @@ class Benchmark : private LoadGenerator
     struct Metrics
     {
         medida::Timer& benchmarkTimer;
-        std::unique_ptr<medida::TimerContext> benchmarkTimeContext;
         medida::Counter& txsCount;
         std::chrono::nanoseconds timeSpent;
 
@@ -46,16 +45,14 @@ class Benchmark : private LoadGenerator
     Benchmark(Hash const& networkID, size_t numberOfInitialAccounts,
               uint32_t txRate);
     void prepareBenchmark(Application& app);
-    void initializeBenchmark(Application& app, uint32_t ledgerNum);
-    std::shared_ptr<Metrics> startBenchmark(Application& app);
-    std::shared_ptr<Metrics> stopBenchmark(std::shared_ptr<Metrics> metrics);
-    virtual LoadGenerator::AccountInfoPtr
-    pickRandomAccount(AccountInfoPtr tryToAvoid, uint32_t ledgerNum) override;
-    void createAccountsDirectly(Application& app, size_t n);
-    void createAccountsUsingLedgerManager(Application& app, size_t n);
-    void createAccountsUsingTransactions(Application& app, size_t n);
+    Benchmark& initializeBenchmark(Application& app, uint32_t ledgerNum);
+    void startBenchmark(Application& app);
+    Metrics stopBenchmark();
+    void setNumberOfInitialAccounts(size_t numberOfInitialAccounts);
+    void setTxRate(uint32_t txRate);
 
   private:
+    void populateAccounts(Application& app, size_t n);
     void setMaxTxSize(LedgerManager& ledger, uint32_t maxTxSetSize);
     bool generateLoadForBenchmark(Application& app, uint32_t txRate,
                                   Metrics& metrics);
@@ -64,9 +61,18 @@ class Benchmark : private LoadGenerator
     LedgerCloseData createData(LedgerManager& ledger, StellarValue& value);
     std::unique_ptr<Benchmark::Metrics>
     initializeMetrics(medida::MetricsRegistry& registry);
+    virtual LoadGenerator::AccountInfoPtr
+    pickRandomAccount(AccountInfoPtr tryToAvoid, uint32_t ledgerNum) override;
+    void createAccountsDirectly(Application& app, size_t n);
+    void createAccountsUsingLedgerManager(Application& app, size_t n);
+    void createAccountsUsingTransactions(Application& app, size_t n);
+
     bool mIsRunning;
     size_t mNumberOfInitialAccounts;
     uint32_t mTxRate;
     std::vector<AccountInfoPtr>::iterator mRandomIterator;
+    bool mIsPopulated;
+    std::unique_ptr<Benchmark::Metrics> mMetrics;
+    std::unique_ptr<medida::TimerContext> mBenchmarkTimeContext;
 };
 }

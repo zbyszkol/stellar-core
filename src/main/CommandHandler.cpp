@@ -84,6 +84,8 @@ CommandHandler::CommandHandler(Application& app) : mApp(app)
                       std::bind(&CommandHandler::dropPeer, this, _1, _2));
     mServer->addRoute("generateload",
                       std::bind(&CommandHandler::generateLoad, this, _1, _2));
+    mServer->addRoute("benchmark",
+                      std::bind(&CommandHandler::benchmark, this, _1, _2));
     mServer->addRoute("info", std::bind(&CommandHandler::info, this, _1, _2));
     mServer->addRoute("ll", std::bind(&CommandHandler::ll, this, _1, _2));
     mServer->addRoute("logrotate",
@@ -231,6 +233,7 @@ CommandHandler::fileNotFound(std::string const& params, std::string& retStr)
     retStr = "<b>Welcome to stellar-core!</b><p>";
     retStr += "supported commands:<p/>";
 
+    // TODO add "benchmark" command to this uber string
     retStr +=
         "<p><h1> /bans</h1>"
         "list current active bans"

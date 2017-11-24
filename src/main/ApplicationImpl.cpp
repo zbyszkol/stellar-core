@@ -37,6 +37,8 @@
 #include "process/ProcessManager.h"
 #include "scp/LocalNode.h"
 #include "scp/QuorumSetUtils.h"
+#include "simulation/Benchmark.h"
+#include "simulation/BenchmarkExecutor.h"
 #include "simulation/LoadGenerator.h"
 #include "util/StatusManager.h"
 #include "work/WorkManager.h"
@@ -416,6 +418,14 @@ ApplicationImpl::generateLoad(uint32_t nAccounts, uint32_t nTxs,
     getLoadGenerator().generateLoad(*this, nAccounts, nTxs, txRate, autoRate);
 }
 
+void
+ApplicationImpl::executeBenchmark(uint32_t nAccounts,
+                                  uint32_t txRate,
+                                  std::chrono::seconds testDuration)
+{
+    getBenchmarkExecutor(nAccounts, txRate).executeBenchmark(*this, testDuration);
+}
+
 LoadGenerator&
 ApplicationImpl::getLoadGenerator()
 {
@@ -424,6 +434,18 @@ ApplicationImpl::getLoadGenerator()
         mLoadGenerator = make_unique<LoadGenerator>(getNetworkID());
     }
     return *mLoadGenerator;
+}
+
+BenchmarkExecutor&
+
+ApplicationImpl::getBenchmarkExecutor(uint32_t nAccounts, uint32_t txRate)
+{
+    if (!mBenchmarkExecutor)
+    {
+        auto benchmark = make_unique<Benchmark>(getNetworkID(), nAccounts, txRate);
+        mBenchmarkExecutor = make_unique<BenchmarkExecutor>(std::move(benchmark));
+    }
+    return *mBenchmarkExecutor;
 }
 
 void

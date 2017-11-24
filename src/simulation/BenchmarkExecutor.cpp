@@ -19,28 +19,50 @@ namespace stellar
 
 const char* BenchmarkExecutor::LOGGER_ID = Benchmark::LOGGER_ID;
 
+BenchmarkExecutor::BenchmarkExecutor(std::unique_ptr<Benchmark> benchmark)
+    : mBenchmark(std::move(benchmark))
+{
+}
 void
 BenchmarkExecutor::executeBenchmark(Application& app,
-                                    std::shared_ptr<Benchmark> benchmark,
                                     std::chrono::seconds testDuration)
 {
-    benchmark->prepareBenchmark(app);
+    // CLOG(INFO, LOGGER_ID) << "Test duration is " << testDuration.count() << " seconds.";
+    // std::cout << testDuration.count() << std::endl;
 
-    VirtualClock clock(VirtualClock::REAL_TIME);
-    VirtualTimer timer{clock};
-    auto metrics = benchmark->startBenchmark(app);
+    // benchmark->prepareBenchmark(app);
+    mBenchmark->initializeBenchmark(app, app.getLedgerManager().getLedgerNum() - 1);
+
+    VirtualTimer& timer = getTimer(app.getClock());
+
+    app.getMetrics()
+        .NewMeter({"benchmark", "run", "started"}, "run")
+        .Mark();
+
+    mBenchmark->startBenchmark(app);
     timer.expires_from_now(testDuration);
     timer.async_wait(
-        [this, benchmark, &metrics, &app](asio::error_code const& error) {
+        [this, &app](asio::error_code const& error) {
 
-            metrics = benchmark->stopBenchmark(metrics);
-            reportBenchmark(*metrics, app.getMetrics());
+            auto metrics = mBenchmark->stopBenchmark();
+            reportBenchmark(metrics, app.getMetrics());
 
             app.getMetrics()
                 .NewMeter({"benchmark", "run", "complete"}, "run")
                 .Mark();
+
             CLOG(INFO, LOGGER_ID) << "Benchmark complete.";
         });
+}
+
+VirtualTimer&
+BenchmarkExecutor::getTimer(VirtualClock& clock)
+{
+    if (!mLoadTimer)
+    {
+        mLoadTimer = make_unique<VirtualTimer>(clock);
+    }
+    return *mLoadTimer;
 }
 
 void

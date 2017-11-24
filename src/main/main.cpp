@@ -22,6 +22,7 @@
 #include "main/PersistentState.h"
 #include "main/dumpxdr.h"
 #include "main/fuzz.h"
+#include "simulation/Benchmark.h"
 #include "test/test.h"
 #include "util/Fs.h"
 #include "util/Logging.h"
@@ -69,7 +70,8 @@ enum opttag
     OPT_SIGNTXN,
     OPT_NETID,
     OPT_TEST,
-    OPT_VERSION
+    OPT_VERSION,
+    OPT_PREPAREBENCHMARK
 };
 
 static const struct option stellar_core_options[] = {
@@ -102,6 +104,7 @@ static const struct option stellar_core_options[] = {
     {"newhist", required_argument, nullptr, OPT_NEWHIST},
     {"test", no_argument, nullptr, OPT_TEST},
     {"version", no_argument, nullptr, OPT_VERSION},
+    {"prepare-benchmark", required_argument, nullptr, OPT_PREPAREBENCHMARK},
     {nullptr, 0, nullptr, 0}};
 
 static void
@@ -479,6 +482,21 @@ writeQuorumGraph(Config const& cfg)
     LOG(INFO) << "Wrote quorum graph to " << filename;
 }
 
+void
+populateBenchmark(Config& cfg)
+{
+    VirtualClock clock(VirtualClock::REAL_TIME);
+    Application::pointer app;
+    app = Application::create(clock, cfg, false);
+
+    if (!checkInitialized(app))
+    {
+        throw std::runtime_error{"Application not initialized"};
+    }
+    app->newDB();
+    Benchmark(app->getNetworkID()).prepareBenchmark(*app);
+}
+
 static void
 initializeDatabase(Config& cfg)
 {
@@ -585,6 +603,7 @@ main(int argc, char* const* argv)
     std::string loadXdrBucket = "";
     std::vector<std::string> newHistories;
     std::vector<std::string> metrics;
+    bool prepareBenchmark = false;
 
     int opt;
     while ((opt = getopt_long_only(argc, argv, "c:", stellar_core_options,
@@ -692,6 +711,9 @@ main(int argc, char* const* argv)
         case OPT_VERSION:
             std::cout << STELLAR_CORE_VERSION << std::endl;
             return 0;
+        case OPT_PREPAREBENCHMARK:
+            prepareBenchmark = true;
+            break;
         case OPT_HELP:
         default:
             usage(0);
@@ -758,6 +780,8 @@ main(int argc, char* const* argv)
                 checkQuorumIntersection(cfg);
             if (graphQuorum)
                 writeQuorumGraph(cfg);
+            if (prepareBenchmark)
+                populateBenchmark(cfg);
             return 0;
         }
         else if (!newHistories.empty())

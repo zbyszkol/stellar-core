@@ -28,8 +28,9 @@ initializeBenchmark(Application& app)
 void
 prepareBenchmark(Application& app)
 {
-    auto benchmark = make_unique<Benchmark>(app.getNetworkID());
-    benchmark->prepareBenchmark(app);
+    app.newDB();
+    Benchmark benchmark(app.getNetworkID());
+    benchmark.prepareBenchmark(app);
 }
 
 std::unique_ptr<Config>
@@ -81,12 +82,12 @@ TEST_CASE("stellar-core's benchmark", "[benchmark]")
     bool done = false;
 
     VirtualTimer timer{clock};
-    auto metrics = benchmark->startBenchmark(*app);
+    benchmark->startBenchmark(*app);
     timer.expires_from_now(testDuration);
     timer.async_wait(
-        [&benchmark, &done, app, metrics](asio::error_code const& error) {
-            auto stopMetrics = benchmark->stopBenchmark(metrics);
-            BenchmarkExecutor().reportBenchmark(*metrics, app->getMetrics());
+        [&benchmark, &done, app](asio::error_code const& error) {
+            auto stopMetrics = benchmark->stopBenchmark();
+            BenchmarkExecutor().reportBenchmark(stopMetrics, app->getMetrics());
             done = true;
         });
 

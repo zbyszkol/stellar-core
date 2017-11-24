@@ -41,4 +41,11 @@ Application::create(VirtualClock& clock, Config const& cfg, bool newDB)
 {
     return create<ApplicationImpl>(clock, cfg, newDB);
 }
+
+void
+Application::executeBenchmark(uint32_t nAccounts,
+                              uint32_t txRate,
+                              std::chrono::seconds testDuration)
+{
+}
 }
