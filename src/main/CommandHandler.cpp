@@ -15,6 +15,7 @@
 #include "main/Config.h"
 #include "overlay/BanManager.h"
 #include "overlay/OverlayManager.h"
+#include "simulation/Benchmark.h"
 #include "util/Logging.h"
 #include "util/StatusManager.h"
 #include "util/make_unique.h"
@@ -436,7 +437,38 @@ CommandHandler::benchmark(std::string const& params, std::string& retStr)
         mApp.executeBenchmark(nAccounts, txRate, std::chrono::seconds{duration});
 
         retStr = fmt::format(
-            "Benchmark of stellar-core: {:d} accounts, {:d} txrate, {:d} minutes",
+            "Benchmark of stellar-core: {:d} accounts, {:d} txrate, {:d} seconds",
+            nAccounts, txRate, duration);
+    }
+    else
+    {
+        retStr = "Set ARTIFICIALLY_GENERATE_LOAD_FOR_TESTING=true in "
+            "the stellar-core.cfg if you want this behavior";
+    }
+}
+
+void createAccounts(std::string const& params, std::string& retStr)
+{
+    if (mApp.getConfig().ARTIFICIALLY_GENERATE_LOAD_FOR_TESTING)
+    {
+        uint32_t nAccounts = 1000000;
+
+        std::map<std::string, std::string> map;
+        http::server::server::parseParams(params, map);
+
+        if (!parseNumParam(map, "accounts", nAccounts, retStr,
+                           Requirement::OPTIONAL_REQ))
+        {
+            retStr = "Invalid value for the parameter 'accounts'";
+            return;
+        }
+
+        Benchmark benchmark(app->getNetworkID());
+        benchmark.setNumberOfInitialAccounts(nAccounts);
+        benchmark.prepareBenchmark(*app);
+
+        retStr = fmt::format(
+            "Benchmark of stellar-core: {:d} accounts, {:d} txrate, {:d} seconds",
             nAccounts, txRate, duration);
     }
     else

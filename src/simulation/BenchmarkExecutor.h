@@ -26,8 +26,8 @@ class BenchmarkExecutor
   private:
     VirtualTimer& getTimer(VirtualClock& clock);
 
-    std::unique_ptr<VirtualTimer> mLoadTimer;
     std::unique_ptr<Benchmark> mBenchmark;
+    std::unique_ptr<VirtualTimer> mLoadTimer;
     static const char* LOGGER_ID;
 };
 

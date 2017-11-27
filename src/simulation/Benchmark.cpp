@@ -226,17 +226,13 @@ Benchmark::createAccountsDirectly(Application& app, size_t n)
 void
 Benchmark::populateAccounts(Application& app, size_t size)
 {
-    size_t accountsLeft = size;
-    while (accountsLeft > 0)
+    for (size_t accountsLeft = size, batchSize = size; accountsLeft > 0; accountsLeft -= batchSize)
     {
-        size_t batchSize =
-            std::min(accountsLeft, MAXIMAL_NUMBER_OF_TXS_PER_LEDGER);
+        batchSize = std::min(accountsLeft, MAXIMAL_NUMBER_OF_TXS_PER_LEDGER);
 
         createAccountsDirectly(app, batchSize);
         // createAccounts(app, mNumberOfInitialAccounts);
         // createAccountsUsingTransactions(app, mNumberOfInitialAccounts);
-
-        accountsLeft -= batchSize;
     }
 }
 
@@ -288,8 +284,10 @@ Benchmark::initializeBenchmark(Application& app, uint32_t ledgerNum)
     if (!mIsPopulated)
     {
         LoadGenerator::createAccounts(mNumberOfInitialAccounts, ledgerNum);
+        loadAccounts(app, mAccounts);
     }
     mRandomIterator = shuffleAccounts(mAccounts);
+    setMaxTxSize(app.getLedgerManager(), MAXIMAL_NUMBER_OF_TXS_PER_LEDGER);
     return *this;
 }
 
