@@ -31,11 +31,10 @@ class BenchmarkExecutor
     static const char* LOGGER_ID;
 };
 
-class BenchmarkReporter
+struct BenchmarkReporter
 {
-  public:
     template<typename Stream>
-    void reportBenchmark(Benchmark::Metrics& metrics,
+    void reportBenchmark(Benchmark::Metrics const& metrics,
                          medida::MetricsRegistry& metricsRegistry,
                          Stream& str)
         {

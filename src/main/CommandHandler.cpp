@@ -15,8 +15,6 @@
 #include "main/Config.h"
 #include "overlay/BanManager.h"
 #include "overlay/OverlayManager.h"
-#include "simulation/Benchmark.h"
-#include "simulation/BenchmarkExecutor.h"
 #include "util/Logging.h"
 #include "util/StatusManager.h"
 #include "util/make_unique.h"
@@ -233,7 +231,6 @@ CommandHandler::fileNotFound(std::string const& params, std::string& retStr)
     retStr = "<b>Welcome to stellar-core!</b><p>";
     retStr += "supported commands:<p/>";
 
-    // TODO add "benchmark" command to this uber string
     retStr +=
         "<p><h1> /bans</h1>"
         "list current active bans"
@@ -305,6 +302,9 @@ CommandHandler::fileNotFound(std::string const& params, std::string& retStr)
         "</p><p><h1> "
         "/unban?node=NODE_ID</h1>"
         "remove ban for PEER_ID"
+        "</p><p><h1> /benchmark[?accounts=N&txrate=R&duration=T]</h1>"
+        "start benchmark of stellar-core; must be used with "
+        "ARTIFICIALLY_GENERATE_LOAD_FOR_TESTING set to true"
         "</p>"
 
         "<br>";
@@ -433,9 +433,7 @@ CommandHandler::benchmark(std::string const& params, std::string& retStr)
             return;
         }
 
-        auto benchmark = make_unique<Benchmark>(mApp.getNetworkID(), nAccounts, txRate);
-        BenchmarkExecutor executor(std::move(benchmark));
-        executor.executeBenchmark(mApp, std::chrono::seconds(duration));
+        mApp.executeBenchmark(nAccounts, txRate, std::chrono::seconds{duration});
 
         retStr = fmt::format(
             "Benchmark of stellar-core: {:d} accounts, {:d} txrate, {:d} minutes",

@@ -37,6 +37,14 @@ Benchmark::Benchmark(Hash const& networkID, size_t numberOfInitialAccounts,
 {
 }
 
+Benchmark::~Benchmark()
+{
+    if (mIsRunning)
+    {
+        stopBenchmark();
+    }
+}
+
 void
 Benchmark::startBenchmark(Application& app)
 {
@@ -44,11 +52,11 @@ Benchmark::startBenchmark(Application& app)
     {
         throw std::runtime_error{"Benchmark already started"};
     }
-    using namespace std;
     mIsRunning = true;
     mMetrics = initializeMetrics(app.getMetrics());
+    using namespace std;
     size_t txPerStep = (mTxRate * STEP_MSECS / 1000);
-    txPerStep = std::max(txPerStep, size_t(1));
+    txPerStep = max(txPerStep, size_t(1));
     function<bool()> load = [this, &app, txPerStep]() {
         if (!this->mIsRunning || app.isStopping())
         {
@@ -84,8 +92,8 @@ Benchmark::stopBenchmark()
     {
         throw std::runtime_error{"Benchmark already stopped"};
     }
-    mIsRunning = false;
     mMetrics->timeSpent = mBenchmarkTimeContext->Stop();
+    mIsRunning = false;
     mBenchmarkTimeContext.reset();
     auto result = *mMetrics;
     mMetrics.reset();

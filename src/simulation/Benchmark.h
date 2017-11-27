@@ -23,7 +23,7 @@ class Timer;
 namespace stellar
 {
 
-class Benchmark : private LoadGenerator
+class Benchmark : public LoadGenerator
 {
   private:
   public:
@@ -44,6 +44,7 @@ class Benchmark : private LoadGenerator
     Benchmark(Hash const& networkID);
     Benchmark(Hash const& networkID, size_t numberOfInitialAccounts,
               uint32_t txRate);
+    virtual ~Benchmark();
     void prepareBenchmark(Application& app);
     Benchmark& initializeBenchmark(Application& app, uint32_t ledgerNum);
     void startBenchmark(Application& app);

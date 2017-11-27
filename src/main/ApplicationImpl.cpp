@@ -437,14 +437,10 @@ ApplicationImpl::getLoadGenerator()
 }
 
 BenchmarkExecutor&
-
 ApplicationImpl::getBenchmarkExecutor(uint32_t nAccounts, uint32_t txRate)
 {
-    if (!mBenchmarkExecutor)
-    {
-        auto benchmark = make_unique<Benchmark>(getNetworkID(), nAccounts, txRate);
-        mBenchmarkExecutor = make_unique<BenchmarkExecutor>(std::move(benchmark));
-    }
+    auto benchmark = make_unique<Benchmark>(getNetworkID(), nAccounts, txRate);
+    mBenchmarkExecutor = make_unique<BenchmarkExecutor>(std::move(benchmark));
     return *mBenchmarkExecutor;
 }
 
