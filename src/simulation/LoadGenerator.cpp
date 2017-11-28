@@ -131,10 +131,6 @@ LoadGenerator::scheduleLoad(Application& app,
                             std::function<bool()> loadGenerator,
                             uint32_t stepTime)
 {
-    if (app.isStopping())
-    {
-        return;
-    }
     VirtualTimer& timer = getTimer(app.getClock());
     const auto deadline = std::chrono::milliseconds(stepTime);
     timer.expires_from_now(deadline);

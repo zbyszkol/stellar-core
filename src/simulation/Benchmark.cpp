@@ -33,7 +33,6 @@ Benchmark::Benchmark(Hash const& networkID, size_t numberOfInitialAccounts,
     , mIsRunning(false)
     , mNumberOfInitialAccounts(numberOfInitialAccounts)
     , mTxRate(txRate)
-    , mIsPopulated(false)
 {
 }
 
@@ -58,7 +57,7 @@ Benchmark::startBenchmark(Application& app)
     size_t txPerStep = (mTxRate * STEP_MSECS / 1000);
     txPerStep = max(txPerStep, size_t(1));
     function<bool()> load = [this, &app, txPerStep]() {
-        if (!this->mIsRunning || app.isStopping())
+        if (!this->mIsRunning)
         {
             return false;
         }
@@ -98,6 +97,12 @@ Benchmark::stopBenchmark()
     auto result = *mMetrics;
     mMetrics.reset();
     return result;
+}
+
+bool
+Benchmark::isRunning()
+{
+    return mIsRunning;
 }
 
 bool
@@ -271,9 +276,10 @@ Benchmark::prepareBenchmark(Application& app)
     setMaxTxSize(app.getLedgerManager(), MAXIMAL_NUMBER_OF_TXS_PER_LEDGER);
 
     populateAccounts(app, mNumberOfInitialAccounts);
-    mIsPopulated = true;
 
     app.getHistoryManager().queueCurrentHistory();
+
+    mAccounts.clear();
 
     CLOG(INFO, LOGGER_ID) << "Data for benchmark prepared";
 }
@@ -281,11 +287,8 @@ Benchmark::prepareBenchmark(Application& app)
 Benchmark&
 Benchmark::initializeBenchmark(Application& app, uint32_t ledgerNum)
 {
-    if (!mIsPopulated)
-    {
-        LoadGenerator::createAccounts(mNumberOfInitialAccounts, ledgerNum);
-        loadAccounts(app, mAccounts);
-    }
+    LoadGenerator::createAccounts(mNumberOfInitialAccounts, ledgerNum);
+    loadAccounts(app, mAccounts);
     mRandomIterator = shuffleAccounts(mAccounts);
     setMaxTxSize(app.getLedgerManager(), MAXIMAL_NUMBER_OF_TXS_PER_LEDGER);
     return *this;

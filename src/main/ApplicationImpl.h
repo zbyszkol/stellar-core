@@ -89,9 +89,7 @@ class ApplicationImpl : public Application
     virtual void generateLoad(uint32_t nAccounts, uint32_t nTxs,
                               uint32_t txRate, bool autoRate) override;
 
-    virtual void executeBenchmark(uint32_t nAccounts,
-                                  uint32_t txRate,
-                                  std::chrono::seconds testDuration) override;
+    virtual BenchmarkExecutor& getBenchmarkExecutor() override;
 
     virtual LoadGenerator& getLoadGenerator() override;
 
@@ -170,7 +168,5 @@ class ApplicationImpl : public Application
 
     virtual std::unique_ptr<Herder> createHerder();
     virtual std::unique_ptr<OverlayManager> createOverlayManager();
-
-    BenchmarkExecutor& getBenchmarkExecutor(uint32_t nAccounts, uint32_t txRate);
 };
 }

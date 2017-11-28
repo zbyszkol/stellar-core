@@ -16,6 +16,7 @@
 #include "overlay/BanManager.h"
 #include "overlay/OverlayManager.h"
 #include "simulation/Benchmark.h"
+#include "simulation/BenchmarkExecutor.h"
 #include "util/Logging.h"
 #include "util/StatusManager.h"
 #include "util/make_unique.h"
@@ -300,10 +301,9 @@ CommandHandler::fileNotFound(std::string const& params, std::string& retStr)
         "on the instance."
         "<ul><li><i>queue</i> performs deletion of queue data.See setcursor "
         "for more information</li></ul>"
-        "</p><p><h1> "
-        "/unban?node=NODE_ID</h1>"
+        "</p><p><h1> /unban?node=NODE_ID</h1>"
         "remove ban for PEER_ID"
-        "</p><p><h1> /benchmark[?accounts=N&txrate=R&duration=T]</h1>"
+        "</p><p><h1> /benchmark[?createaccounts=N | accounts=N&txrate=R&duration=T]</h1>"
         "start benchmark of stellar-core; must be used with "
         "ARTIFICIALLY_GENERATE_LOAD_FOR_TESTING set to true"
         "</p>"
@@ -405,77 +405,67 @@ CommandHandler::generateLoad(std::string const& params, std::string& retStr)
 void
 CommandHandler::benchmark(std::string const& params, std::string& retStr)
 {
-    if (mApp.getConfig().ARTIFICIALLY_GENERATE_LOAD_FOR_TESTING)
-    {
-        uint32_t nAccounts = 1000000;
-        uint32_t txRate = 1000;
-        uint32_t duration = 60 * 10;
-
-        std::map<std::string, std::string> map;
-        http::server::server::parseParams(params, map);
-
-        if (!parseNumParam(map, "accounts", nAccounts, retStr,
-                           Requirement::OPTIONAL_REQ))
-        {
-            retStr = "Invalid value for the parameter 'accounts'";
-            return;
-        }
-
-        if (!parseNumParam(map, "txrate", txRate, retStr,
-                           Requirement::OPTIONAL_REQ))
-        {
-            retStr = "Invalid value for the parameter 'txrate'";
-            return;
-        }
-
-        if (!parseNumParam(map, "duration", duration, retStr, Requirement::OPTIONAL_REQ))
-        {
-            retStr = "Invalid value for the parameter 'duration'";
-            return;
-        }
-
-        mApp.executeBenchmark(nAccounts, txRate, std::chrono::seconds{duration});
-
-        retStr = fmt::format(
-            "Benchmark of stellar-core: {:d} accounts, {:d} txrate, {:d} seconds",
-            nAccounts, txRate, duration);
-    }
-    else
+    if (!mApp.getConfig().ARTIFICIALLY_GENERATE_LOAD_FOR_TESTING)
     {
         retStr = "Set ARTIFICIALLY_GENERATE_LOAD_FOR_TESTING=true in "
             "the stellar-core.cfg if you want this behavior";
+        return;
     }
-}
 
-void createAccounts(std::string const& params, std::string& retStr)
-{
-    if (mApp.getConfig().ARTIFICIALLY_GENERATE_LOAD_FOR_TESTING)
+    uint32 createAccounts = 0;
+    uint32_t nAccounts = 1000000;
+    uint32_t txRate = 1000;
+    uint32_t duration = 60 * 10;
+
+    std::map<std::string, std::string> map;
+    http::server::server::parseParams(params, map);
+
+    if(!parseNumParam(map, "createaccounts", createAccounts, retStr, Requirement::OPTIONAL_REQ))
     {
-        uint32_t nAccounts = 1000000;
-
-        std::map<std::string, std::string> map;
-        http::server::server::parseParams(params, map);
-
-        if (!parseNumParam(map, "accounts", nAccounts, retStr,
-                           Requirement::OPTIONAL_REQ))
-        {
-            retStr = "Invalid value for the parameter 'accounts'";
-            return;
-        }
-
-        Benchmark benchmark(app->getNetworkID());
-        benchmark.setNumberOfInitialAccounts(nAccounts);
-        benchmark.prepareBenchmark(*app);
-
-        retStr = fmt::format(
-            "Benchmark of stellar-core: {:d} accounts, {:d} txrate, {:d} seconds",
-            nAccounts, txRate, duration);
+        retStr = "Invalid value for the parameter 'createaccounts'";
+        return;
     }
-    else
+
+    if (createAccounts > 0)
     {
-        retStr = "Set ARTIFICIALLY_GENERATE_LOAD_FOR_TESTING=true in "
-            "the stellar-core.cfg if you want this behavior";
+        Benchmark& benchmark = mApp.getBenchmarkExecutor().getBenchmark();
+        benchmark.setNumberOfInitialAccounts(createAccounts);
+        benchmark.prepareBenchmark(mApp);
+
+        retStr = fmt::format("{{\"createdAccounts\": {:d}}}", createAccounts);
+        return;
     }
+
+    if (!parseNumParam(map, "accounts", nAccounts, retStr,
+                       Requirement::OPTIONAL_REQ))
+    {
+        retStr = "Invalid value for the parameter 'accounts'";
+        return;
+    }
+
+    if (!parseNumParam(map, "txrate", txRate, retStr,
+                       Requirement::OPTIONAL_REQ))
+    {
+        retStr = "Invalid value for the parameter 'txrate'";
+        return;
+    }
+
+    if (!parseNumParam(map, "duration", duration, retStr, Requirement::OPTIONAL_REQ))
+    {
+        retStr = "Invalid value for the parameter 'duration'";
+        return;
+    }
+
+    BenchmarkExecutor& executor = mApp.getBenchmarkExecutor();
+    Benchmark& benchmark = executor.getBenchmark();
+    benchmark.setNumberOfInitialAccounts(nAccounts);
+    benchmark.setTxRate(txRate);
+    benchmark.initializeBenchmark(mApp, mApp.getLedgerManager().getLedgerNum());
+    executor.executeBenchmark(mApp, std::chrono::seconds{duration});
+
+    retStr = fmt::format(
+        "{{ \"Benchmark\": {{ \"accounts\": {:d}, \"txRate\": {:d}, \"seconds\": {:d} }} }}",
+        nAccounts, txRate, duration);
 }
 
 void

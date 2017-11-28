@@ -32,7 +32,7 @@ BenchmarkExecutor::executeBenchmark(Application& app,
 
     // benchmark->prepareBenchmark(app);
 
-    mBenchmark->initializeBenchmark(app, app.getLedgerManager().getLedgerNum() - 1);
+    // mBenchmark->initializeBenchmark(app, app.getLedgerManager().getLedgerNum());
 
     VirtualTimer& timer = getTimer(app.getClock());
 
@@ -54,6 +54,12 @@ BenchmarkExecutor::executeBenchmark(Application& app,
 
             CLOG(INFO, LOGGER_ID) << "Benchmark complete.";
         });
+}
+
+Benchmark&
+BenchmarkExecutor::getBenchmark()
+{
+    return *mBenchmark;
 }
 
 VirtualTimer&

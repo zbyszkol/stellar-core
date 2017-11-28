@@ -418,14 +418,6 @@ ApplicationImpl::generateLoad(uint32_t nAccounts, uint32_t nTxs,
     getLoadGenerator().generateLoad(*this, nAccounts, nTxs, txRate, autoRate);
 }
 
-void
-ApplicationImpl::executeBenchmark(uint32_t nAccounts,
-                                  uint32_t txRate,
-                                  std::chrono::seconds testDuration)
-{
-    getBenchmarkExecutor(nAccounts, txRate).executeBenchmark(*this, testDuration);
-}
-
 LoadGenerator&
 ApplicationImpl::getLoadGenerator()
 {
@@ -437,10 +429,13 @@ ApplicationImpl::getLoadGenerator()
 }
 
 BenchmarkExecutor&
-ApplicationImpl::getBenchmarkExecutor(uint32_t nAccounts, uint32_t txRate)
+ApplicationImpl::getBenchmarkExecutor()
 {
-    auto benchmark = make_unique<Benchmark>(getNetworkID(), nAccounts, txRate);
-    mBenchmarkExecutor = make_unique<BenchmarkExecutor>(std::move(benchmark));
+    if (!mBenchmarkExecutor)
+    {
+        auto benchmark = make_unique<Benchmark>(getNetworkID());
+        mBenchmarkExecutor = make_unique<BenchmarkExecutor>(std::move(benchmark));
+    }
     return *mBenchmarkExecutor;
 }
 

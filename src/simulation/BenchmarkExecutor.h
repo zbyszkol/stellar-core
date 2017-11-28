@@ -23,6 +23,8 @@ class BenchmarkExecutor
     void executeBenchmark(Application& app,
                           std::chrono::seconds testDuration);
 
+    Benchmark& getBenchmark();
+
   private:
     VirtualTimer& getTimer(VirtualClock& clock);
 

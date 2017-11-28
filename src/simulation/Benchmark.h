@@ -49,6 +49,7 @@ class Benchmark : public LoadGenerator
     Benchmark& initializeBenchmark(Application& app, uint32_t ledgerNum);
     void startBenchmark(Application& app);
     Metrics stopBenchmark();
+    bool isRunning();
     void setNumberOfInitialAccounts(size_t numberOfInitialAccounts);
     void setTxRate(uint32_t txRate);
 
@@ -72,7 +73,6 @@ class Benchmark : public LoadGenerator
     size_t mNumberOfInitialAccounts;
     uint32_t mTxRate;
     std::vector<AccountInfoPtr>::iterator mRandomIterator;
-    bool mIsPopulated;
     std::unique_ptr<Benchmark::Metrics> mMetrics;
     std::unique_ptr<medida::TimerContext> mBenchmarkTimeContext;
 };
