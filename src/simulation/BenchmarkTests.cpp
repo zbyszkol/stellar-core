@@ -21,8 +21,7 @@ std::unique_ptr<Benchmark>
 initializeBenchmark(Application& app)
 {
     auto benchmark = make_unique<Benchmark>(app.getNetworkID());
-    benchmark->initializeBenchmark(app,
-                                   app.getLedgerManager().getLedgerNum() - 1);
+    benchmark->initializeBenchmark(app);
     return benchmark;
 }
 
@@ -47,6 +46,7 @@ initializeConfig()
     cfg->FORCE_SCP = true;
     cfg->RUN_STANDALONE = false;
     cfg->BUCKET_DIR_PATH = "buckets";
+    cfg->NETWORK_PASSPHRASE = "Test SDF Network ; September 2015";
 
     using namespace std;
     const string historyName = "benchmark";

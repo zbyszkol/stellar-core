@@ -19,47 +19,35 @@ namespace stellar
 
 const char* BenchmarkExecutor::LOGGER_ID = Benchmark::LOGGER_ID;
 
-BenchmarkExecutor::BenchmarkExecutor(std::unique_ptr<Benchmark> benchmark)
-    : mBenchmark(std::move(benchmark))
-{
-}
 void
 BenchmarkExecutor::executeBenchmark(Application& app,
+                                    std::shared_ptr<Benchmark> benchmark,
                                     std::chrono::seconds testDuration)
 {
-    // CLOG(INFO, LOGGER_ID) << "Test duration is " << testDuration.count() << " seconds.";
-    // std::cout << testDuration.count() << std::endl;
-
-    // benchmark->prepareBenchmark(app);
-
-    // mBenchmark->initializeBenchmark(app, app.getLedgerManager().getLedgerNum());
-
     VirtualTimer& timer = getTimer(app.getClock());
 
     app.getMetrics()
         .NewMeter({"benchmark", "run", "started"}, "run")
         .Mark();
 
-    mBenchmark->startBenchmark(app);
-    timer.expires_from_now(testDuration);
+    auto stopProcedure = [this, &app, benchmark](asio::error_code const& error) {
+
+        auto metrics = benchmark->stopBenchmark();
+        BenchmarkReporter().reportBenchmark(metrics, app.getMetrics(), CLOG(INFO, LOGGER_ID));
+
+        app.getMetrics().NewMeter({"benchmark", "run", "complete"}, "run").Mark();
+
+        CLOG(INFO, LOGGER_ID) << "Benchmark complete.";
+    };
+    timer.expires_from_now(std::chrono::milliseconds{1});
     timer.async_wait(
-        [this, &app](asio::error_code const& error) {
+        [this, &app, benchmark, testDuration, stopProcedure, &timer](asio::error_code const& error) {
+            benchmark->initializeBenchmark(app);
+            benchmark->startBenchmark(app);
 
-            auto metrics = mBenchmark->stopBenchmark();
-            BenchmarkReporter().reportBenchmark(metrics, app.getMetrics(), CLOG(INFO, LOGGER_ID));
-
-            app.getMetrics()
-                .NewMeter({"benchmark", "run", "complete"}, "run")
-                .Mark();
-
-            CLOG(INFO, LOGGER_ID) << "Benchmark complete.";
+            timer.expires_from_now(testDuration);
+            timer.async_wait(stopProcedure);
         });
-}
-
-Benchmark&
-BenchmarkExecutor::getBenchmark()
-{
-    return *mBenchmark;
 }
 
 VirtualTimer&

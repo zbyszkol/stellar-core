@@ -433,8 +433,7 @@ ApplicationImpl::getBenchmarkExecutor()
 {
     if (!mBenchmarkExecutor)
     {
-        auto benchmark = make_unique<Benchmark>(getNetworkID());
-        mBenchmarkExecutor = make_unique<BenchmarkExecutor>(std::move(benchmark));
+        mBenchmarkExecutor = make_unique<BenchmarkExecutor>();
     }
     return *mBenchmarkExecutor;
 }

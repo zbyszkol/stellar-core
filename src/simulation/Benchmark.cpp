@@ -6,6 +6,7 @@
 
 #include "bucket/BucketManager.h"
 #include "database/Database.h"
+#include "herder/Herder.h"
 #include "ledger/LedgerDelta.h"
 #include "util/Logging.h"
 #include "util/make_unique.h"
@@ -23,7 +24,7 @@ const char* Benchmark::LOGGER_ID = "Benchmark";
 size_t Benchmark::MAXIMAL_NUMBER_OF_TXS_PER_LEDGER = 1000;
 
 Benchmark::Benchmark(Hash const& networkID)
-    : Benchmark(networkID, 1000000, MAXIMAL_NUMBER_OF_TXS_PER_LEDGER)
+    : Benchmark(networkID, 1000, MAXIMAL_NUMBER_OF_TXS_PER_LEDGER)
 {
 }
 
@@ -87,6 +88,7 @@ Benchmark::Metrics::Metrics(medida::MetricsRegistry& registry)
 Benchmark::Metrics
 Benchmark::stopBenchmark()
 {
+    CLOG(INFO, LOGGER_ID) << "Stopping benchmark";
     if (!mIsRunning)
     {
         throw std::runtime_error{"Benchmark already stopped"};
@@ -96,6 +98,7 @@ Benchmark::stopBenchmark()
     mBenchmarkTimeContext.reset();
     auto result = *mMetrics;
     mMetrics.reset();
+    CLOG(INFO, LOGGER_ID) << "Benchmark stopped";
     return result;
 }
 
@@ -117,10 +120,9 @@ Benchmark::generateLoadForBenchmark(Application& app, uint32_t txRate,
     }
 
     CLOG(TRACE, LOGGER_ID) << "Generating " << txRate
-                           << "transactions per step";
+                           << " transaction(s) per step";
 
     uint32_t ledgerNum = app.getLedgerManager().getLedgerNum();
-    std::vector<LoadGenerator::TxInfo> txs;
     for (uint32_t it = 0; it < txRate; ++it)
     {
         auto tx = createRandomTransaction(0.5, ledgerNum);
@@ -130,12 +132,11 @@ Benchmark::generateLoadForBenchmark(Application& app, uint32_t txRate,
                 << "Error while executing a transaction: transaction rejected";
             return false;
         }
+        metrics.txsCount.inc();
     }
 
-    metrics.txsCount.inc(txs.size());
-
     CLOG(TRACE, LOGGER_ID) << txRate
-                           << " transactions generated in single step";
+                           << " transaction(s) generated in single step";
 
     return true;
 }
@@ -239,6 +240,7 @@ Benchmark::populateAccounts(Application& app, size_t size)
         // createAccounts(app, mNumberOfInitialAccounts);
         // createAccountsUsingTransactions(app, mNumberOfInitialAccounts);
     }
+    app.getHerder().triggerNextLedger(app.getLedgerManager().getLedgerNum());
 }
 
 void
@@ -272,12 +274,10 @@ Benchmark::prepareBenchmark(Application& app)
     CLOG(INFO, LOGGER_ID) << "Preparing data for benchmark";
 
     initializeMetrics(app.getMetrics());
-
     setMaxTxSize(app.getLedgerManager(), MAXIMAL_NUMBER_OF_TXS_PER_LEDGER);
-
     populateAccounts(app, mNumberOfInitialAccounts);
-
     app.getHistoryManager().queueCurrentHistory();
+    app.getHerder().triggerNextLedger(app.getLedgerManager().getLedgerNum());
 
     mAccounts.clear();
 
@@ -285,12 +285,17 @@ Benchmark::prepareBenchmark(Application& app)
 }
 
 Benchmark&
-Benchmark::initializeBenchmark(Application& app, uint32_t ledgerNum)
+Benchmark::initializeBenchmark(Application& app)
 {
-    LoadGenerator::createAccounts(mNumberOfInitialAccounts, ledgerNum);
+    CLOG(INFO, LOGGER_ID) << "Initializing benchmark";
+
+    mAccounts = LoadGenerator::createAccounts(mNumberOfInitialAccounts, app.getLedgerManager().getLedgerNum());
     loadAccounts(app, mAccounts);
     mRandomIterator = shuffleAccounts(mAccounts);
     setMaxTxSize(app.getLedgerManager(), MAXIMAL_NUMBER_OF_TXS_PER_LEDGER);
+    app.getHerder().triggerNextLedger(app.getLedgerManager().getLedgerNum());
+
+    CLOG(INFO, LOGGER_ID) << "Benchmark initialized";
     return *this;
 }
 

@@ -18,17 +18,13 @@ namespace stellar
 class BenchmarkExecutor
 {
   public:
-    BenchmarkExecutor(std::unique_ptr<Benchmark> benchmark);
-
     void executeBenchmark(Application& app,
+                          std::shared_ptr<Benchmark> benchmark,
                           std::chrono::seconds testDuration);
-
-    Benchmark& getBenchmark();
 
   private:
     VirtualTimer& getTimer(VirtualClock& clock);
 
-    std::unique_ptr<Benchmark> mBenchmark;
     std::unique_ptr<VirtualTimer> mLoadTimer;
     static const char* LOGGER_ID;
 };
@@ -59,7 +55,6 @@ struct BenchmarkReporter
             externalizedTxs->Process(processor);
             auto txsExternalized = processor.count;
 
-            // CLOG(INFO, LOGGER_ID) << endl
             str << endl
                 << "Benchmark metrics:" << endl
                 << "  time spent: " << metrics.timeSpent.count()
@@ -69,7 +64,6 @@ struct BenchmarkReporter
                 << "  txs externalized: " << txsExternalized << endl;
 
             medida::reporting::JsonReporter jr(metricsRegistry);
-            // CLOG(INFO, LOGGER_ID) << jr.Report() << endl;
             str << jr.Report() << endl;
         }
 };

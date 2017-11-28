@@ -30,6 +30,7 @@
 
 #include "test/TestAccount.h"
 #include "test/TxTests.h"
+#include <memory>
 #include <regex>
 
 using namespace stellar::txtest;
@@ -428,7 +429,7 @@ CommandHandler::benchmark(std::string const& params, std::string& retStr)
 
     if (createAccounts > 0)
     {
-        Benchmark& benchmark = mApp.getBenchmarkExecutor().getBenchmark();
+        Benchmark benchmark{mApp.getNetworkID()};
         benchmark.setNumberOfInitialAccounts(createAccounts);
         benchmark.prepareBenchmark(mApp);
 
@@ -456,12 +457,11 @@ CommandHandler::benchmark(std::string const& params, std::string& retStr)
         return;
     }
 
-    BenchmarkExecutor& executor = mApp.getBenchmarkExecutor();
-    Benchmark& benchmark = executor.getBenchmark();
-    benchmark.setNumberOfInitialAccounts(nAccounts);
-    benchmark.setTxRate(txRate);
-    benchmark.initializeBenchmark(mApp, mApp.getLedgerManager().getLedgerNum());
-    executor.executeBenchmark(mApp, std::chrono::seconds{duration});
+    std::shared_ptr<Benchmark> benchmark = std::make_shared<Benchmark>(mApp.getNetworkID());
+    benchmark->setNumberOfInitialAccounts(nAccounts);
+    benchmark->setTxRate(txRate);
+    // benchmark->initializeBenchmark(mApp, mApp.getLedgerManager().getLedgerNum());
+    mApp.getBenchmarkExecutor().executeBenchmark(mApp, benchmark, std::chrono::seconds{duration});
 
     retStr = fmt::format(
         "{{ \"Benchmark\": {{ \"accounts\": {:d}, \"txRate\": {:d}, \"seconds\": {:d} }} }}",

@@ -46,7 +46,7 @@ class Benchmark : public LoadGenerator
               uint32_t txRate);
     virtual ~Benchmark();
     void prepareBenchmark(Application& app);
-    Benchmark& initializeBenchmark(Application& app, uint32_t ledgerNum);
+    Benchmark& initializeBenchmark(Application& app);
     void startBenchmark(Application& app);
     Metrics stopBenchmark();
     bool isRunning();
