@@ -10,6 +10,7 @@
 #include "simulation/Benchmark.h"
 #include "util/Timer.h"
 #include <chrono>
+#include <functional>
 #include <memory>
 
 namespace stellar
@@ -20,7 +21,8 @@ class BenchmarkExecutor
   public:
     void executeBenchmark(Application& app,
                           std::shared_ptr<Benchmark> benchmark,
-                          std::chrono::seconds testDuration);
+                          std::chrono::seconds testDuration,
+                          std::function<void(Benchmark::Metrics)> stopCallback);
 
   private:
     VirtualTimer& getTimer(VirtualClock& clock);

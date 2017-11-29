@@ -30,6 +30,7 @@
 
 #include "test/TestAccount.h"
 #include "test/TxTests.h"
+#include <functional>
 #include <memory>
 #include <regex>
 
@@ -460,8 +461,16 @@ CommandHandler::benchmark(std::string const& params, std::string& retStr)
     std::shared_ptr<Benchmark> benchmark = std::make_shared<Benchmark>(mApp.getNetworkID());
     benchmark->setNumberOfInitialAccounts(nAccounts);
     benchmark->setTxRate(txRate);
-    // benchmark->initializeBenchmark(mApp, mApp.getLedgerManager().getLedgerNum());
-    mApp.getBenchmarkExecutor().executeBenchmark(mApp, benchmark, std::chrono::seconds{duration});
+    mApp.getMetrics()
+        .NewMeter({"benchmark", "run", "started"}, "run")
+        .Mark();
+    auto stopCallback = [this] (Benchmark::Metrics metrics) {
+        mApp.getMetrics()
+        .NewMeter({"benchmark", "run", "complete"}, "run")
+        .Mark();
+        BenchmarkReporter().reportBenchmark(metrics, mApp.getMetrics(), LOG(INFO));
+    };
+    mApp.getBenchmarkExecutor().executeBenchmark(mApp, benchmark, std::chrono::seconds{duration}, stopCallback);
 
     retStr = fmt::format(
         "{{ \"Benchmark\": {{ \"accounts\": {:d}, \"txRate\": {:d}, \"seconds\": {:d} }} }}",

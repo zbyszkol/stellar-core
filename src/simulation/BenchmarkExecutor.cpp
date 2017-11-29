@@ -12,6 +12,7 @@
 #include "util/Timer.h"
 #include "util/make_unique.h"
 #include <chrono>
+#include <functional>
 #include <memory>
 
 namespace stellar
@@ -22,7 +23,8 @@ const char* BenchmarkExecutor::LOGGER_ID = Benchmark::LOGGER_ID;
 void
 BenchmarkExecutor::executeBenchmark(Application& app,
                                     std::shared_ptr<Benchmark> benchmark,
-                                    std::chrono::seconds testDuration)
+                                    std::chrono::seconds testDuration,
+                                    std::function<void(Benchmark::Metrics)> stopCallback)
 {
     VirtualTimer& timer = getTimer(app.getClock());
 
@@ -30,12 +32,10 @@ BenchmarkExecutor::executeBenchmark(Application& app,
         .NewMeter({"benchmark", "run", "started"}, "run")
         .Mark();
 
-    auto stopProcedure = [this, &app, benchmark](asio::error_code const& error) {
+    auto stopProcedure = [this, &app, benchmark, stopCallback](asio::error_code const& error) {
 
         auto metrics = benchmark->stopBenchmark();
-        BenchmarkReporter().reportBenchmark(metrics, app.getMetrics(), CLOG(INFO, LOGGER_ID));
-
-        app.getMetrics().NewMeter({"benchmark", "run", "complete"}, "run").Mark();
+        stopCallback(metrics);
 
         CLOG(INFO, LOGGER_ID) << "Benchmark complete.";
     };

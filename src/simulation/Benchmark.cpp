@@ -91,7 +91,7 @@ Benchmark::stopBenchmark()
     CLOG(INFO, LOGGER_ID) << "Stopping benchmark";
     if (!mIsRunning)
     {
-        throw std::runtime_error{"Benchmark already stopped"};
+        throw std::runtime_error{"Benchmark is already stopped"};
     }
     mMetrics->timeSpent = mBenchmarkTimeContext->Stop();
     mIsRunning = false;
@@ -129,14 +129,14 @@ Benchmark::generateLoadForBenchmark(Application& app, uint32_t txRate,
         if (!tx.execute(app))
         {
             CLOG(ERROR, LOGGER_ID)
-                << "Error while executing a transaction: transaction rejected";
+                << "Error while executing a transaction: transaction was rejected";
             return false;
         }
         metrics.txsCount.inc();
     }
 
     CLOG(TRACE, LOGGER_ID) << txRate
-                           << " transaction(s) generated in single step";
+                           << " transaction(s) generated in a single step";
 
     return true;
 }
@@ -235,10 +235,7 @@ Benchmark::populateAccounts(Application& app, size_t size)
     for (size_t accountsLeft = size, batchSize = size; accountsLeft > 0; accountsLeft -= batchSize)
     {
         batchSize = std::min(accountsLeft, MAXIMAL_NUMBER_OF_TXS_PER_LEDGER);
-
         createAccountsDirectly(app, batchSize);
-        // createAccounts(app, mNumberOfInitialAccounts);
-        // createAccountsUsingTransactions(app, mNumberOfInitialAccounts);
     }
     app.getHerder().triggerNextLedger(app.getLedgerManager().getLedgerNum());
 }
@@ -276,6 +273,7 @@ Benchmark::prepareBenchmark(Application& app)
     initializeMetrics(app.getMetrics());
     setMaxTxSize(app.getLedgerManager(), MAXIMAL_NUMBER_OF_TXS_PER_LEDGER);
     populateAccounts(app, mNumberOfInitialAccounts);
+
     app.getHistoryManager().queueCurrentHistory();
     app.getHerder().triggerNextLedger(app.getLedgerManager().getLedgerNum());
 
