@@ -20,17 +20,18 @@ const char* LOGGER_ID = "Benchmark";
 std::unique_ptr<Benchmark>
 initializeBenchmark(Application& app)
 {
-    auto benchmark = make_unique<Benchmark>(app.getNetworkID());
-    benchmark->initializeBenchmark(app);
-    return benchmark;
+    Benchmark::BenchmarkBuilder builder{app.getNetworkID()};
+    builder.initializeBenchmark();
+    return builder.createBenchmark(app);
 }
 
 void
 prepareBenchmark(Application& app)
 {
     app.newDB();
-    Benchmark benchmark(app.getNetworkID());
-    benchmark.prepareBenchmark(app);
+    Benchmark::BenchmarkBuilder builder{app.getNetworkID()};
+    builder.populateBenchmarkData();
+    builder.createBenchmark(app);
 }
 
 std::unique_ptr<Config>

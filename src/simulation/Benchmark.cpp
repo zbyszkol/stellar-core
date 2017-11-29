@@ -11,6 +11,7 @@
 #include "util/Logging.h"
 #include "util/make_unique.h"
 #include <algorithm>
+#include <chrono>
 #include <functional>
 #include <memory>
 #include <random>
@@ -70,7 +71,7 @@ Benchmark::startBenchmark(Application& app)
     mBenchmarkTimeContext =
         make_unique<medida::TimerContext>(mMetrics->benchmarkTimer.TimeScope());
     load();
-    scheduleLoad(app, load, LoadGenerator::STEP_MSECS);
+    scheduleLoad(app, load, std::chrono::milliseconds{LoadGenerator::STEP_MSECS});
 }
 
 std::unique_ptr<Benchmark::Metrics>
@@ -103,28 +104,15 @@ Benchmark::stopBenchmark()
 }
 
 bool
-Benchmark::isRunning()
-{
-    return mIsRunning;
-}
-
-bool
 Benchmark::generateLoadForBenchmark(Application& app, uint32_t txRate,
                                     Metrics& metrics)
 {
-    updateMinBalance(app);
-
-    if (txRate == 0)
-    {
-        txRate = 1;
-    }
-
     CLOG(TRACE, LOGGER_ID) << "Generating " << txRate
                            << " transaction(s) per step";
 
-    uint32_t ledgerNum = app.getLedgerManager().getLedgerNum();
     for (uint32_t it = 0; it < txRate; ++it)
     {
+        uint32_t ledgerNum = app.getLedgerManager().getLedgerNum();
         auto tx = createRandomTransaction(0.5, ledgerNum);
         if (!tx.execute(app))
         {
@@ -277,8 +265,6 @@ Benchmark::prepareBenchmark(Application& app)
     app.getHistoryManager().queueCurrentHistory();
     app.getHerder().triggerNextLedger(app.getLedgerManager().getLedgerNum());
 
-    mAccounts.clear();
-
     CLOG(INFO, LOGGER_ID) << "Data for benchmark prepared";
 }
 
@@ -287,8 +273,12 @@ Benchmark::initializeBenchmark(Application& app)
 {
     CLOG(INFO, LOGGER_ID) << "Initializing benchmark";
 
-    mAccounts = LoadGenerator::createAccounts(mNumberOfInitialAccounts, app.getLedgerManager().getLedgerNum());
-    loadAccounts(app, mAccounts);
+    if (mAccounts.empty())
+    {
+        mAccounts = LoadGenerator::createAccounts(mNumberOfInitialAccounts, app.getLedgerManager().getLedgerNum());
+        loadAccounts(app, mAccounts);
+
+    }
     mRandomIterator = shuffleAccounts(mAccounts);
     setMaxTxSize(app.getLedgerManager(), MAXIMAL_NUMBER_OF_TXS_PER_LEDGER);
     app.getHerder().triggerNextLedger(app.getLedgerManager().getLedgerNum());
@@ -318,14 +308,88 @@ Benchmark::pickRandomAccount(AccountInfoPtr tryToAvoid, uint32_t ledgerNum)
 }
 
 void
-Benchmark::setNumberOfInitialAccounts(size_t numberOfInitialAccounts)
+Benchmark::scheduleLoad(Application& app,
+                        std::function<bool()> loadGenerator,
+                        std::chrono::milliseconds stepTime)
 {
-    mNumberOfInitialAccounts = numberOfInitialAccounts;
+    VirtualTimer& timer = getTimer(app.getClock());
+    timer.expires_from_now(stepTime);
+    timer.async_wait(
+        [this, &app, loadGenerator, stepTime](asio::error_code const& error) {
+            if (error)
+            {
+                return;
+            }
+            if (loadGenerator())
+            {
+                this->scheduleLoad(app, loadGenerator, stepTime);
+            }
+        });
 }
 
-void
-Benchmark::setTxRate(uint32_t txRate)
+VirtualTimer&
+Benchmark::getTimer(VirtualClock& clock)
+{
+    if (!mLoadTimer)
+    {
+        mLoadTimer = make_unique<VirtualTimer>(clock);
+    }
+    return *mLoadTimer;
+}
+
+Benchmark::BenchmarkBuilder::BenchmarkBuilder(Hash const& networkID)
+    : mInitialize(false), mPopulate(false), mTxRate(0), mAccounts(0), mNetworkID(networkID)
+{
+}
+
+Benchmark::BenchmarkBuilder&
+Benchmark::BenchmarkBuilder::setNumberOfInitialAccounts(uint32_t accounts)
+{
+    mAccounts = accounts;
+    return *this;
+}
+
+Benchmark::BenchmarkBuilder&
+Benchmark::BenchmarkBuilder::setTxRate(uint32_t txRate)
 {
     mTxRate = txRate;
+    return *this;
+}
+
+Benchmark::BenchmarkBuilder&
+Benchmark::BenchmarkBuilder::initializeBenchmark()
+{
+    mInitialize = true;
+    return *this;
+}
+
+Benchmark::BenchmarkBuilder&
+Benchmark::BenchmarkBuilder::populateBenchmarkData()
+{
+    mPopulate = true;
+    return *this;
+}
+
+std::unique_ptr<Benchmark>
+Benchmark::BenchmarkBuilder::createBenchmark(Application& app) const
+{
+    class BenchmarkB : public Benchmark {
+    public:
+        BenchmarkB(Hash const& networkID, size_t numberOfInitialAccounts,
+                    uint32_t txRate)
+            : Benchmark(networkID, numberOfInitialAccounts, txRate)
+        {}
+    };
+    std::unique_ptr<Benchmark> benchmark = make_unique<BenchmarkB>(mNetworkID, mAccounts, mTxRate);
+    if (mPopulate)
+    {
+        benchmark->prepareBenchmark(app);
+    }
+    if (mInitialize)
+    {
+        benchmark->initializeBenchmark(app);
+    }
+
+    return std::move(benchmark);
 }
 }

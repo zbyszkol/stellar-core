@@ -22,7 +22,7 @@ const char* BenchmarkExecutor::LOGGER_ID = Benchmark::LOGGER_ID;
 
 void
 BenchmarkExecutor::executeBenchmark(Application& app,
-                                    std::shared_ptr<Benchmark> benchmark,
+                                    Benchmark::BenchmarkBuilder benchmarkBuilder,
                                     std::chrono::seconds testDuration,
                                     std::function<void(Benchmark::Metrics)> stopCallback)
 {
@@ -32,18 +32,20 @@ BenchmarkExecutor::executeBenchmark(Application& app,
         .NewMeter({"benchmark", "run", "started"}, "run")
         .Mark();
 
-    auto stopProcedure = [this, &app, benchmark, stopCallback](asio::error_code const& error) {
-
-        auto metrics = benchmark->stopBenchmark();
-        stopCallback(metrics);
-
-        CLOG(INFO, LOGGER_ID) << "Benchmark complete.";
-    };
     timer.expires_from_now(std::chrono::milliseconds{1});
     timer.async_wait(
-        [this, &app, benchmark, testDuration, stopProcedure, &timer](asio::error_code const& error) {
-            benchmark->initializeBenchmark(app);
+        [this, &app, benchmarkBuilder, testDuration, &timer, stopCallback](asio::error_code const& error) {
+
+            std::shared_ptr<Benchmark> benchmark{benchmarkBuilder.createBenchmark(app)};
             benchmark->startBenchmark(app);
+
+            auto stopProcedure = [benchmark, stopCallback](asio::error_code const& error) {
+
+                auto metrics = benchmark->stopBenchmark();
+                stopCallback(metrics);
+
+                CLOG(INFO, LOGGER_ID) << "Benchmark complete.";
+            };
 
             timer.expires_from_now(testDuration);
             timer.async_wait(stopProcedure);

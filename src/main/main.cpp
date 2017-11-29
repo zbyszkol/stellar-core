@@ -524,9 +524,10 @@ populateBenchmark(Config& cfg, uint32_t nAccounts)
     {
     }
 
-    Benchmark benchmark(app->getNetworkID());
-    benchmark.setNumberOfInitialAccounts(nAccounts);
-    benchmark.prepareBenchmark(*app);
+    Benchmark::BenchmarkBuilder benchmarkBuilder(app->getNetworkID());
+    benchmarkBuilder.setNumberOfInitialAccounts(nAccounts);
+    benchmarkBuilder.populateBenchmarkData();
+    benchmarkBuilder.createBenchmark(*app);
 }
 
 static void

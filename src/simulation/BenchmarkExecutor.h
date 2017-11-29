@@ -20,7 +20,7 @@ class BenchmarkExecutor
 {
   public:
     void executeBenchmark(Application& app,
-                          std::shared_ptr<Benchmark> benchmark,
+                          Benchmark::BenchmarkBuilder benchmarkBuilder,
                           std::chrono::seconds testDuration,
                           std::function<void(Benchmark::Metrics)> stopCallback);
 

@@ -430,9 +430,10 @@ CommandHandler::benchmark(std::string const& params, std::string& retStr)
 
     if (createAccounts > 0)
     {
-        Benchmark benchmark{mApp.getNetworkID()};
-        benchmark.setNumberOfInitialAccounts(createAccounts);
-        benchmark.prepareBenchmark(mApp);
+        Benchmark::BenchmarkBuilder builder(mApp.getNetworkID());
+        builder.setNumberOfInitialAccounts(createAccounts);
+        builder.populateBenchmarkData();
+        builder.createBenchmark(mApp);
 
         retStr = fmt::format("{{\"createdAccounts\": {:d}}}", createAccounts);
         return;
@@ -458,19 +459,23 @@ CommandHandler::benchmark(std::string const& params, std::string& retStr)
         return;
     }
 
-    std::shared_ptr<Benchmark> benchmark = std::make_shared<Benchmark>(mApp.getNetworkID());
-    benchmark->setNumberOfInitialAccounts(nAccounts);
-    benchmark->setTxRate(txRate);
+    Benchmark::BenchmarkBuilder builder(mApp.getNetworkID());
+    builder.setNumberOfInitialAccounts(nAccounts);
+    builder.setTxRate(txRate);
+    builder.initializeBenchmark();
+
     mApp.getMetrics()
         .NewMeter({"benchmark", "run", "started"}, "run")
         .Mark();
+
     auto stopCallback = [this] (Benchmark::Metrics metrics) {
+
         mApp.getMetrics()
         .NewMeter({"benchmark", "run", "complete"}, "run")
         .Mark();
         BenchmarkReporter().reportBenchmark(metrics, mApp.getMetrics(), LOG(INFO));
     };
-    mApp.getBenchmarkExecutor().executeBenchmark(mApp, benchmark, std::chrono::seconds{duration}, stopCallback);
+    mApp.getBenchmarkExecutor().executeBenchmark(mApp, builder, std::chrono::seconds{duration}, stopCallback);
 
     retStr = fmt::format(
         "{{ \"Benchmark\": {{ \"accounts\": {:d}, \"txRate\": {:d}, \"seconds\": {:d} }} }}",

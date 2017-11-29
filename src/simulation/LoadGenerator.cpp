@@ -126,26 +126,6 @@ LoadGenerator::scheduleLoadGeneration(Application& app, uint32_t nAccounts,
     }
 }
 
-void
-LoadGenerator::scheduleLoad(Application& app,
-                            std::function<bool()> loadGenerator,
-                            uint32_t stepTime)
-{
-    VirtualTimer& timer = getTimer(app.getClock());
-    const auto deadline = std::chrono::milliseconds(stepTime);
-    timer.expires_from_now(deadline);
-    timer.async_wait(
-        [this, &app, loadGenerator, stepTime](asio::error_code const& error) {
-            if (!error)
-            {
-                if (loadGenerator())
-                {
-                    this->scheduleLoad(app, loadGenerator, stepTime);
-                }
-            }
-        });
-}
-
 bool
 LoadGenerator::maybeCreateAccount(uint32_t ledgerNum, vector<TxInfo>& txs)
 {
