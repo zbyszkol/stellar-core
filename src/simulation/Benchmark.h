@@ -24,7 +24,10 @@ class Timer;
 namespace stellar
 {
 
-class Benchmark : public LoadGenerator
+class TxSampler;
+class ShuffleLoadGenerator;
+
+class Benchmark
 {
   public:
     static size_t MAXIMAL_NUMBER_OF_TXS_PER_LEDGER;
@@ -48,40 +51,23 @@ class Benchmark : public LoadGenerator
     Metrics stopBenchmark();
 
 protected:
-    Benchmark(Hash const& networkID);
-    Benchmark(Hash const& networkID, size_t numberOfInitialAccounts,
-              uint32_t txRate);
+    Benchmark(uint32_t txRate, std::unique_ptr<TxSampler> sampler);
 
   private:
-    void prepareBenchmark(Application& app);
-    Benchmark& initializeBenchmark(Application& app);
-    void populateAccounts(Application& app, size_t n);
-    void setMaxTxSize(LedgerManager& ledger, uint32_t maxTxSetSize);
-
     bool generateLoadForBenchmark(Application& app, uint32_t txRate,
                                   Metrics& metrics);
-    std::vector<AccountInfoPtr>::iterator
-    shuffleAccounts(std::vector<LoadGenerator::AccountInfoPtr>& accounts);
-    LedgerCloseData createData(LedgerManager& ledger, StellarValue& value);
-    std::unique_ptr<Benchmark::Metrics>
-    initializeMetrics(medida::MetricsRegistry& registry);
-    virtual LoadGenerator::AccountInfoPtr
-    pickRandomAccount(AccountInfoPtr tryToAvoid, uint32_t ledgerNum) override;
-    void createAccountsDirectly(Application& app, size_t n);
-    void createAccountsUsingLedgerManager(Application& app, size_t n);
-    void createAccountsUsingTransactions(Application& app, size_t n);
-    VirtualTimer& getTimer(VirtualClock& clock);
     void scheduleLoad(Application& app,
                       std::function<bool()> loadGenerator,
                       std::chrono::milliseconds stepTime);
+    std::unique_ptr<Benchmark::Metrics> initializeMetrics(medida::MetricsRegistry& registry);
+    VirtualTimer& getTimer(VirtualClock& clock);
 
     bool mIsRunning;
-    size_t mNumberOfInitialAccounts;
     uint32_t mTxRate;
-    std::vector<AccountInfoPtr>::iterator mRandomIterator;
     std::unique_ptr<Benchmark::Metrics> mMetrics;
     std::unique_ptr<medida::TimerContext> mBenchmarkTimeContext;
     std::unique_ptr<VirtualTimer> mLoadTimer;
+    std::unique_ptr<TxSampler> mSampler;
 };
 
 class Benchmark::BenchmarkBuilder
@@ -96,10 +82,47 @@ public:
     std::unique_ptr<Benchmark> createBenchmark(Application& app) const;
 
 private:
+    void prepareBenchmark(Application& app, ShuffleLoadGenerator& sampler) const;
+    void populateAccounts(Application& app, size_t n, ShuffleLoadGenerator& sampler) const;
+    void setMaxTxSize(LedgerManager& ledger, uint32_t maxTxSetSize) const;
+    LedgerCloseData createData(LedgerManager& ledger, StellarValue& value) const;
+    void createAccountsDirectly(Application& app, std::vector<LoadGenerator::AccountInfoPtr>& accounts) const;
+
     bool mInitialize;
     bool mPopulate;
     uint32_t mTxRate;
     uint32_t mAccounts;
     Hash mNetworkID;
+};
+
+class TxSampler {
+public:
+    virtual ~TxSampler();
+
+    virtual LoadGenerator::TxInfo createTransaction() = 0;
+};
+
+class ShuffleLoadGenerator : public LoadGenerator, public TxSampler
+{
+public:
+    ShuffleLoadGenerator(Hash const& networkID);
+
+    virtual ~ShuffleLoadGenerator();
+
+    virtual LoadGenerator::TxInfo createTransaction() override;
+
+    std::vector<LoadGenerator::AccountInfoPtr> createAccounts(size_t batchSize);
+
+    void initialize(Application& app, size_t numberOfAccounts);
+
+protected:
+    virtual LoadGenerator::AccountInfoPtr
+    pickRandomAccount(LoadGenerator::AccountInfoPtr tryToAvoid, uint32_t ledgerNum) override;
+
+    std::vector<LoadGenerator::AccountInfoPtr>::iterator
+    shuffleAccounts(std::vector<LoadGenerator::AccountInfoPtr>& accounts);
+
+    std::vector<LoadGenerator::AccountInfoPtr>::iterator mRandomIterator;
+
 };
 }
