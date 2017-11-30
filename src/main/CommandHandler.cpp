@@ -431,9 +431,9 @@ CommandHandler::benchmark(std::string const& params, std::string& retStr)
     if (createAccounts > 0)
     {
         Benchmark::BenchmarkBuilder builder(mApp.getNetworkID());
-        builder.setNumberOfInitialAccounts(createAccounts);
-        builder.populateBenchmarkData();
-        builder.createBenchmark(mApp);
+        builder.setNumberOfInitialAccounts(createAccounts)
+               .populateBenchmarkData()
+               .createBenchmark(mApp);
 
         retStr = fmt::format("{{\"createdAccounts\": {:d}}}", createAccounts);
         return;
@@ -460,9 +460,9 @@ CommandHandler::benchmark(std::string const& params, std::string& retStr)
     }
 
     Benchmark::BenchmarkBuilder builder(mApp.getNetworkID());
-    builder.setNumberOfInitialAccounts(nAccounts);
-    builder.setTxRate(txRate);
-    builder.initializeBenchmark();
+    builder.setNumberOfInitialAccounts(nAccounts)
+           .setTxRate(txRate)
+           .initializeBenchmark();
 
     mApp.getMetrics()
         .NewMeter({"benchmark", "run", "started"}, "run")

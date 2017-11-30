@@ -7,19 +7,12 @@
 #include "main/Application.h"
 #include "medida/counter.h"
 #include "medida/metrics_registry.h"
+#include "medida/timer.h"
 #include "simulation/LoadGenerator.h"
 #include "util/Timer.h"
 #include <chrono>
 #include <memory>
 #include <vector>
-
-namespace medida
-{
-class MetricsRegistry;
-class Meter;
-class Counter;
-class Timer;
-}
 
 namespace stellar
 {
@@ -78,7 +71,6 @@ public:
     BenchmarkBuilder& setTxRate(uint32_t txRate);
     BenchmarkBuilder& initializeBenchmark();
     BenchmarkBuilder& populateBenchmarkData();
-
     std::unique_ptr<Benchmark> createBenchmark(Application& app) const;
 
 private:
@@ -98,7 +90,6 @@ private:
 class TxSampler {
 public:
     virtual ~TxSampler();
-
     virtual LoadGenerator::TxInfo createTransaction() = 0;
 };
 
@@ -106,19 +97,14 @@ class ShuffleLoadGenerator : public LoadGenerator, public TxSampler
 {
 public:
     ShuffleLoadGenerator(Hash const& networkID);
-
     virtual ~ShuffleLoadGenerator();
-
     virtual LoadGenerator::TxInfo createTransaction() override;
-
     std::vector<LoadGenerator::AccountInfoPtr> createAccounts(size_t batchSize);
-
     void initialize(Application& app, size_t numberOfAccounts);
 
 protected:
     virtual LoadGenerator::AccountInfoPtr
     pickRandomAccount(LoadGenerator::AccountInfoPtr tryToAvoid, uint32_t ledgerNum) override;
-
     std::vector<LoadGenerator::AccountInfoPtr>::iterator
     shuffleAccounts(std::vector<LoadGenerator::AccountInfoPtr>& accounts);
 

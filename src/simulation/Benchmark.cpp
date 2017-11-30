@@ -121,6 +121,36 @@ Benchmark::generateLoadForBenchmark(Application& app, uint32_t txRate,
 }
 
 void
+Benchmark::scheduleLoad(Application& app,
+                        std::function<bool()> loadGenerator,
+                        std::chrono::milliseconds stepTime)
+{
+    VirtualTimer& timer = getTimer(app.getClock());
+    timer.expires_from_now(stepTime);
+    timer.async_wait(
+        [this, &app, loadGenerator, stepTime](asio::error_code const& error) {
+            if (error)
+            {
+                return;
+            }
+            if (loadGenerator())
+            {
+                this->scheduleLoad(app, loadGenerator, stepTime);
+            }
+        });
+}
+
+VirtualTimer&
+Benchmark::getTimer(VirtualClock& clock)
+{
+    if (!mLoadTimer)
+    {
+        mLoadTimer = make_unique<VirtualTimer>(clock);
+    }
+    return *mLoadTimer;
+}
+ 
+void
 Benchmark::BenchmarkBuilder::createAccountsDirectly(Application& app,  std::vector<LoadGenerator::AccountInfoPtr>& createdAccounts) const
 {
     soci::transaction sqlTx(app.getDatabase().getSession());
@@ -201,92 +231,6 @@ Benchmark::BenchmarkBuilder::prepareBenchmark(Application& app, ShuffleLoadGener
     populateAccounts(app, mAccounts, sampler);
 }
 
-ShuffleLoadGenerator::ShuffleLoadGenerator(Hash const& networkID)
-    : LoadGenerator(networkID)
-{
-}
-
-ShuffleLoadGenerator::~ShuffleLoadGenerator()
-{
-}
-
-LoadGenerator::TxInfo
-ShuffleLoadGenerator::createTransaction()
-{
-    return LoadGenerator::createRandomTransaction(0.5);
-}
-
-std::vector<LoadGenerator::AccountInfoPtr>
-ShuffleLoadGenerator::createAccounts(size_t batchSize)
-{
-    return LoadGenerator::createAccounts(batchSize);
-}
-
-void
-ShuffleLoadGenerator::initialize(Application& app, size_t numberOfAccounts)
-{
-    CLOG(INFO, Benchmark::LOGGER_ID) << "Initializing benchmark";
-
-    if (mAccounts.empty())
-    {
-        mAccounts = LoadGenerator::createAccounts(numberOfAccounts);
-        loadAccounts(app, mAccounts);
-    }
-    mRandomIterator = shuffleAccounts(mAccounts);
-
-    CLOG(INFO, Benchmark::LOGGER_ID) << "Benchmark initialized";
-}
-
-std::vector<LoadGenerator::AccountInfoPtr>::iterator
-ShuffleLoadGenerator::shuffleAccounts(std::vector<LoadGenerator::AccountInfoPtr>& accounts)
-{
-    auto rng = std::default_random_engine{0};
-    std::shuffle(mAccounts.begin(), mAccounts.end(), rng);
-    return mAccounts.begin();
-}
-
-LoadGenerator::AccountInfoPtr
-ShuffleLoadGenerator::pickRandomAccount(AccountInfoPtr tryToAvoid, uint32_t ledgerNum)
-{
-    if (mRandomIterator == mAccounts.end())
-    {
-        mRandomIterator = mAccounts.begin();
-    }
-    auto result = *mRandomIterator;
-    mRandomIterator++;
-    return result;
-}
-
-void
-Benchmark::scheduleLoad(Application& app,
-                        std::function<bool()> loadGenerator,
-                        std::chrono::milliseconds stepTime)
-{
-    VirtualTimer& timer = getTimer(app.getClock());
-    timer.expires_from_now(stepTime);
-    timer.async_wait(
-        [this, &app, loadGenerator, stepTime](asio::error_code const& error) {
-            if (error)
-            {
-                return;
-            }
-            if (loadGenerator())
-            {
-                this->scheduleLoad(app, loadGenerator, stepTime);
-            }
-        });
-}
-
-VirtualTimer&
-Benchmark::getTimer(VirtualClock& clock)
-{
-    if (!mLoadTimer)
-    {
-        mLoadTimer = make_unique<VirtualTimer>(clock);
-    }
-    return *mLoadTimer;
-}
-
 Benchmark::BenchmarkBuilder::BenchmarkBuilder(Hash const& networkID)
     : mInitialize(false), mPopulate(false), mTxRate(0), mAccounts(0), mNetworkID(networkID)
 {
@@ -342,12 +286,66 @@ Benchmark::BenchmarkBuilder::createBenchmark(Application& app) const
             : Benchmark(txRate, std::move(sampler))
             {}
     };
-    std::unique_ptr<Benchmark> benchmark = make_unique<BenchmarkExt>(mTxRate, std::unique_ptr<TxSampler>(sampler.release()));
-
-    return std::move(benchmark);
+    return make_unique<BenchmarkExt>(mTxRate, std::unique_ptr<TxSampler>(sampler.release()));
 }
 
 TxSampler::~TxSampler()
 {
+}
+
+ShuffleLoadGenerator::ShuffleLoadGenerator(Hash const& networkID)
+    : LoadGenerator(networkID)
+{
+}
+
+ShuffleLoadGenerator::~ShuffleLoadGenerator()
+{
+}
+
+LoadGenerator::TxInfo
+ShuffleLoadGenerator::createTransaction()
+{
+    return LoadGenerator::createRandomTransaction(0.5);
+}
+
+std::vector<LoadGenerator::AccountInfoPtr>
+ShuffleLoadGenerator::createAccounts(size_t batchSize)
+{
+    return LoadGenerator::createAccounts(batchSize);
+}
+
+void
+ShuffleLoadGenerator::initialize(Application& app, size_t numberOfAccounts)
+{
+    CLOG(INFO, Benchmark::LOGGER_ID) << "Initializing benchmark";
+
+    if (mAccounts.empty())
+    {
+        mAccounts = LoadGenerator::createAccounts(numberOfAccounts);
+        loadAccounts(app, mAccounts);
+    }
+    mRandomIterator = shuffleAccounts(mAccounts);
+
+    CLOG(INFO, Benchmark::LOGGER_ID) << "Benchmark initialized";
+}
+
+std::vector<LoadGenerator::AccountInfoPtr>::iterator
+ShuffleLoadGenerator::shuffleAccounts(std::vector<LoadGenerator::AccountInfoPtr>& accounts)
+{
+    auto rng = std::default_random_engine{0};
+    std::shuffle(mAccounts.begin(), mAccounts.end(), rng);
+    return mAccounts.begin();
+}
+
+LoadGenerator::AccountInfoPtr
+ShuffleLoadGenerator::pickRandomAccount(AccountInfoPtr tryToAvoid, uint32_t ledgerNum)
+{
+    if (mRandomIterator == mAccounts.end())
+    {
+        mRandomIterator = mAccounts.begin();
+    }
+    auto result = *mRandomIterator;
+    mRandomIterator++;
+    return result;
 }
 }

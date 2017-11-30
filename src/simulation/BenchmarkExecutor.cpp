@@ -27,11 +27,6 @@ BenchmarkExecutor::executeBenchmark(Application& app,
                                     std::function<void(Benchmark::Metrics)> stopCallback)
 {
     VirtualTimer& timer = getTimer(app.getClock());
-
-    app.getMetrics()
-        .NewMeter({"benchmark", "run", "started"}, "run")
-        .Mark();
-
     timer.expires_from_now(std::chrono::milliseconds{1});
     timer.async_wait(
         [this, &app, benchmarkBuilder, testDuration, &timer, stopCallback](asio::error_code const& error) {
