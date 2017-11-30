@@ -18,7 +18,6 @@ namespace stellar
 {
 
 class TxSampler;
-class ShuffleLoadGenerator;
 
 class Benchmark
 {
@@ -32,7 +31,6 @@ class Benchmark
     {
         medida::Timer& benchmarkTimer;
         medida::Counter& txsCount;
-        std::chrono::nanoseconds timeSpent;
 
       private:
         Metrics(medida::MetricsRegistry& registry);
@@ -42,9 +40,10 @@ class Benchmark
     virtual ~Benchmark();
     void startBenchmark(Application& app);
     Metrics stopBenchmark();
+    Metrics getMetrics();
 
 protected:
-    Benchmark(uint32_t txRate, std::unique_ptr<TxSampler> sampler);
+    Benchmark(medida::MetricsRegistry& registry, uint32_t txRate, std::unique_ptr<TxSampler> sampler);
 
   private:
     bool generateLoadForBenchmark(Application& app, uint32_t txRate,
@@ -52,16 +51,18 @@ protected:
     void scheduleLoad(Application& app,
                       std::function<bool()> loadGenerator,
                       std::chrono::milliseconds stepTime);
-    std::unique_ptr<Benchmark::Metrics> initializeMetrics(medida::MetricsRegistry& registry);
+    Benchmark::Metrics initializeMetrics(medida::MetricsRegistry& registry);
     VirtualTimer& getTimer(VirtualClock& clock);
 
     bool mIsRunning;
     uint32_t mTxRate;
-    std::unique_ptr<Benchmark::Metrics> mMetrics;
+    Benchmark::Metrics mMetrics;
     std::unique_ptr<medida::TimerContext> mBenchmarkTimeContext;
     std::unique_ptr<VirtualTimer> mLoadTimer;
     std::unique_ptr<TxSampler> mSampler;
 };
+
+class ShuffleLoadGenerator;
 
 class Benchmark::BenchmarkBuilder
 {
@@ -109,6 +110,5 @@ protected:
     shuffleAccounts(std::vector<LoadGenerator::AccountInfoPtr>& accounts);
 
     std::vector<LoadGenerator::AccountInfoPtr>::iterator mRandomIterator;
-
 };
 }

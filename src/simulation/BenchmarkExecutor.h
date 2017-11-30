@@ -59,8 +59,8 @@ struct BenchmarkReporter
 
             str << endl
                 << "Benchmark metrics:" << endl
-                << "  time spent: " << metrics.timeSpent.count()
-                << " nanoseconds" << endl
+                << "  time spent: " << metrics.benchmarkTimer.sum()
+                << " milliseconds" << endl
                 << "  txs submitted: " << metrics.txsCount.count()
                 << endl
                 << "  txs externalized: " << txsExternalized << endl;

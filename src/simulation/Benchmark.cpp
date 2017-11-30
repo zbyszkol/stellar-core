@@ -24,8 +24,8 @@ const char* Benchmark::LOGGER_ID = "Benchmark";
 
 size_t Benchmark::MAXIMAL_NUMBER_OF_TXS_PER_LEDGER = 1000;
 
-Benchmark::Benchmark(uint32_t txRate, std::unique_ptr<TxSampler> sampler)
-    : mTxRate(txRate), mSampler(std::move(sampler))
+Benchmark::Benchmark(medida::MetricsRegistry& registry, uint32_t txRate, std::unique_ptr<TxSampler> sampler)
+    : mIsRunning(false), mTxRate(txRate), mMetrics(initializeMetrics(registry)), mSampler(std::move(sampler))
 {
 }
 
@@ -45,7 +45,6 @@ Benchmark::startBenchmark(Application& app)
         throw std::runtime_error{"Benchmark already started"};
     }
     mIsRunning = true;
-    mMetrics = initializeMetrics(app.getMetrics());
     using namespace std;
     size_t txPerStep = (mTxRate * LoadGenerator::STEP_MSECS / 1000);
     txPerStep = max(txPerStep, size_t(1));
@@ -55,20 +54,20 @@ Benchmark::startBenchmark(Application& app)
             return false;
         }
 
-        generateLoadForBenchmark(app, txPerStep, *mMetrics);
+        generateLoadForBenchmark(app, txPerStep, mMetrics);
 
         return true;
     };
     mBenchmarkTimeContext =
-        make_unique<medida::TimerContext>(mMetrics->benchmarkTimer.TimeScope());
+        make_unique<medida::TimerContext>(mMetrics.benchmarkTimer.TimeScope());
     load();
     scheduleLoad(app, load, std::chrono::milliseconds{LoadGenerator::STEP_MSECS});
 }
 
-std::unique_ptr<Benchmark::Metrics>
+Benchmark::Metrics
 Benchmark::initializeMetrics(medida::MetricsRegistry& registry)
 {
-    return make_unique<Benchmark::Metrics>(Benchmark::Metrics(registry));
+    return Benchmark::Metrics(registry);
 }
 
 Benchmark::Metrics::Metrics(medida::MetricsRegistry& registry)
@@ -85,13 +84,16 @@ Benchmark::stopBenchmark()
     {
         throw std::runtime_error{"Benchmark is already stopped"};
     }
-    mMetrics->timeSpent = mBenchmarkTimeContext->Stop();
+    mBenchmarkTimeContext->Stop();
     mIsRunning = false;
-    mBenchmarkTimeContext.reset();
-    auto result = *mMetrics;
-    mMetrics.reset();
     CLOG(INFO, LOGGER_ID) << "Benchmark stopped";
-    return result;
+    return mMetrics;
+}
+
+Benchmark::Metrics
+Benchmark::getMetrics()
+{
+    return mMetrics;
 }
 
 bool
@@ -101,18 +103,26 @@ Benchmark::generateLoadForBenchmark(Application& app, uint32_t txRate,
     CLOG(TRACE, LOGGER_ID) << "Generating " << txRate
                            << " transaction(s) per step";
 
+    mBenchmarkTimeContext->Stop();
+
     for (uint32_t it = 0; it < txRate; ++it)
     {
         uint32_t ledgerNum = app.getLedgerManager().getLedgerNum();
         auto tx = mSampler->createTransaction();
+
+        mBenchmarkTimeContext->Reset();
+
         if (!tx.execute(app))
         {
             CLOG(ERROR, LOGGER_ID)
                 << "Error while executing a transaction: transaction was rejected";
             return false;
         }
+        mBenchmarkTimeContext->Stop();
         metrics.txsCount.inc();
     }
+
+    mBenchmarkTimeContext->Reset();
 
     CLOG(TRACE, LOGGER_ID) << txRate
                            << " transaction(s) generated in a single step";
@@ -282,11 +292,11 @@ Benchmark::BenchmarkBuilder::createBenchmark(Application& app) const
 
     class BenchmarkExt : public Benchmark {
     public:
-        BenchmarkExt(uint32_t txRate, std::unique_ptr<TxSampler> sampler)
-            : Benchmark(txRate, std::move(sampler))
+        BenchmarkExt(medida::MetricsRegistry& registry, uint32_t txRate, std::unique_ptr<TxSampler> sampler)
+            : Benchmark(registry, txRate, std::move(sampler))
             {}
     };
-    return make_unique<BenchmarkExt>(mTxRate, std::unique_ptr<TxSampler>(sampler.release()));
+    return make_unique<BenchmarkExt>(app.getMetrics(), mTxRate, std::unique_ptr<TxSampler>(sampler.release()));
 }
 
 TxSampler::~TxSampler()
