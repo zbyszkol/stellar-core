@@ -22,7 +22,6 @@
 #include "main/PersistentState.h"
 #include "main/dumpxdr.h"
 #include "main/fuzz.h"
-#include "simulation/Benchmark.h"
 #include "test/test.h"
 #include "util/Fs.h"
 #include "util/Logging.h"
@@ -70,8 +69,7 @@ enum opttag
     OPT_SIGNTXN,
     OPT_NETID,
     OPT_TEST,
-    OPT_VERSION,
-    OPT_PREPAREBENCHMARK
+    OPT_VERSION
 };
 
 static const struct option stellar_core_options[] = {
@@ -104,7 +102,6 @@ static const struct option stellar_core_options[] = {
     {"newhist", required_argument, nullptr, OPT_NEWHIST},
     {"test", no_argument, nullptr, OPT_TEST},
     {"version", no_argument, nullptr, OPT_VERSION},
-    {"prepare-benchmark", required_argument, nullptr, OPT_PREPAREBENCHMARK},
     {nullptr, 0, nullptr, 0}};
 
 static void
@@ -173,8 +170,7 @@ usage(int err = 1)
           "environment\n"
           "variable)\n"
           "      --test               Run self-tests\n"
-          "      --version            Print version information\n"
-          "      --prepare-benchmark ACCOUNTS initializes accounts for benchmark";
+          "      --version            Print version information\n";
     exit(err);
 }
 
@@ -381,20 +377,6 @@ parseLedgerCount(std::string const& str)
     return result;
 }
 
-static uint32_t
-parseNumberOfAccounts(std::string const& str)
-{
-    auto pos = std::size_t{0};
-    auto result = std::stoul(str, &pos);
-    if (pos < str.length())
-    {
-        throw std::runtime_error(
-            fmt::format("{} is not a valid ledger count", str));
-    }
-
-    return result;
-}
-
 static void
 setForceSCPFlag(Config const& cfg, bool isOn)
 {
@@ -495,39 +477,6 @@ writeQuorumGraph(Config const& cfg)
     std::string filename = "quorumgraph.dot";
     iq.writeQuorumGraph(cfg, filename);
     LOG(INFO) << "Wrote quorum graph to " << filename;
-}
-
-void
-populateBenchmark(Config& cfg, uint32_t nAccounts)
-{
-    VirtualClock clock(VirtualClock::REAL_TIME);
-    Application::pointer app;
-    app = Application::create(clock, cfg, false);
-
-    if (!checkInitialized(app))
-    {
-        throw std::runtime_error{"Application not initialized"};
-    }
-
-    bool done = false;
-    app->getLedgerManager().loadLastKnownLedger(
-        [&done](asio::error_code const& ec) {
-            if (ec)
-            {
-                throw std::runtime_error(
-                    "Unable to restore last-known ledger state");
-            }
-
-            done = true;
-        });
-    while (!done && clock.crank(true))
-    {
-    }
-
-    Benchmark::BenchmarkBuilder benchmarkBuilder(app->getNetworkID());
-    benchmarkBuilder.setNumberOfInitialAccounts(nAccounts);
-    benchmarkBuilder.populateBenchmarkData();
-    benchmarkBuilder.createBenchmark(*app);
 }
 
 static void
@@ -636,8 +585,6 @@ main(int argc, char* const* argv)
     std::string loadXdrBucket = "";
     std::vector<std::string> newHistories;
     std::vector<std::string> metrics;
-    bool prepareBenchmark = false;
-    uint32_t numberOfAccounts = 0;
 
     int opt;
     while ((opt = getopt_long_only(argc, argv, "c:", stellar_core_options,
@@ -745,10 +692,6 @@ main(int argc, char* const* argv)
         case OPT_VERSION:
             std::cout << STELLAR_CORE_VERSION << std::endl;
             return 0;
-        case OPT_PREPAREBENCHMARK:
-            prepareBenchmark = true;
-            numberOfAccounts = parseNumberOfAccounts(optarg);
-            break;
         case OPT_HELP:
         default:
             usage(0);
@@ -790,7 +733,7 @@ main(int argc, char* const* argv)
 
         if (forceSCP || newDB || getOfflineInfo || !loadXdrBucket.empty() ||
             inferQuorum || graphQuorum || checkQuorum || doCatchupAt ||
-            doCatchupComplete || doCatchupRecent || doCatchupTo || prepareBenchmark)
+            doCatchupComplete || doCatchupRecent || doCatchupTo)
         {
             setNoListen(cfg);
             if (newDB)
@@ -815,8 +758,6 @@ main(int argc, char* const* argv)
                 checkQuorumIntersection(cfg);
             if (graphQuorum)
                 writeQuorumGraph(cfg);
-            if (prepareBenchmark)
-                populateBenchmark(cfg, numberOfAccounts);
             return 0;
         }
         else if (!newHistories.empty())
