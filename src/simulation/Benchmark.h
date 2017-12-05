@@ -101,7 +101,7 @@ class TxSampler
     };
 
     virtual ~TxSampler() = default;
-    virtual std::unique_ptr<Tx> createTransaction() = 0;
+    virtual std::unique_ptr<Tx> createTransactions(size_t size) = 0;
 };
 
 class ShuffleLoadGenerator : public LoadGenerator, public TxSampler
@@ -109,7 +109,7 @@ class ShuffleLoadGenerator : public LoadGenerator, public TxSampler
   public:
     ShuffleLoadGenerator(Hash const& networkID);
     virtual ~ShuffleLoadGenerator() = default;
-    virtual std::unique_ptr<Tx> createTransaction() override;
+    virtual std::unique_ptr<Tx> createTransactions(size_t size) override;
     std::vector<LoadGenerator::AccountInfoPtr> createAccounts(size_t batchSize);
     void initialize(Application& app, size_t numberOfAccounts);
 
@@ -132,8 +132,6 @@ class BenchmarkExecutor
                           std::function<void(Benchmark::Metrics)> stopCallback);
 
   private:
-    VirtualTimer& getTimer(VirtualClock& clock);
-
     std::unique_ptr<VirtualTimer> mLoadTimer;
 };
 

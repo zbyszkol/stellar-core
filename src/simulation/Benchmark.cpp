@@ -88,25 +88,15 @@ Benchmark::generateLoadForBenchmark(Application& app)
                            << " transaction(s) per step";
 
     mBenchmarkTimeContext->Stop();
-
-    for (uint32_t it = 0; it < mTxRate; ++it)
-    {
-        uint32_t ledgerNum = app.getLedgerManager().getLedgerNum();
-        auto tx = mSampler->createTransaction();
-
-        mBenchmarkTimeContext->Reset();
-
-        if (!tx->execute(app))
-        {
-            CLOG(ERROR, LOGGER_ID) << "Error while executing a transaction: "
-                                      "transaction was rejected";
-            return false;
-        }
-        mBenchmarkTimeContext->Stop();
-        mMetrics.txsCount.inc();
-    }
-
+    auto txs = mSampler->createTransactions(mTxRate);
     mBenchmarkTimeContext->Reset();
+    if (!txs->execute(app))
+    {
+        CLOG(ERROR, LOGGER_ID) << "Error while executing a transaction: "
+            "transaction was rejected";
+        return false;
+    }
+    mMetrics.txsCount.inc(mTxRate);
 
     CLOG(TRACE, LOGGER_ID) << mTxRate
                            << " transaction(s) generated in a single step";
@@ -278,26 +268,37 @@ ShuffleLoadGenerator::ShuffleLoadGenerator(Hash const& networkID)
 }
 
 std::unique_ptr<TxSampler::Tx>
-ShuffleLoadGenerator::createTransaction()
+ShuffleLoadGenerator::createTransactions(size_t size)
 {
     class LoadGeneratorTx : public TxSampler::Tx
     {
       public:
-        LoadGeneratorTx(TxInfo tx) : mTx(tx)
+        LoadGeneratorTx()
         {
         }
 
         virtual bool
         execute(Application& app) override
         {
-            return mTx.execute(app);
+            for (auto& tx : mTxs)
+            {
+                if (!tx.execute(app))
+                {
+                    return false;
+                }
+            }
+            return true;
         }
 
-      private:
-        LoadGenerator::TxInfo mTx;
+        std::vector<LoadGenerator::TxInfo> mTxs;
     };
-    return make_unique<LoadGeneratorTx>(
-        LoadGenerator::createRandomTransaction(0.5));
+
+    auto result = make_unique<LoadGeneratorTx>();
+    for (size_t it = 0; it < size; ++it)
+    {
+        result->mTxs.push_back(LoadGenerator::createRandomTransaction(0.5));
+    }
+    return std::move(result);
 }
 
 std::vector<LoadGenerator::AccountInfoPtr>
@@ -349,9 +350,12 @@ BenchmarkExecutor::executeBenchmark(
     std::chrono::seconds testDuration,
     std::function<void(Benchmark::Metrics)> stopCallback)
 {
-    VirtualTimer& timer = getTimer(app.getClock());
-    timer.expires_from_now(std::chrono::milliseconds{1});
-    timer.async_wait([this, &app, benchmarkBuilder, testDuration, &timer,
+    if (!mLoadTimer)
+    {
+        mLoadTimer = make_unique<VirtualTimer>(app.getClock());
+    }
+    mLoadTimer->expires_from_now(std::chrono::milliseconds{1});
+    mLoadTimer->async_wait([this, &app, benchmarkBuilder, testDuration,
                       stopCallback](asio::error_code const& error) {
 
         std::shared_ptr<Benchmark> benchmark{
@@ -367,18 +371,8 @@ BenchmarkExecutor::executeBenchmark(
             CLOG(INFO, Benchmark::LOGGER_ID) << "Benchmark complete.";
         };
 
-        timer.expires_from_now(testDuration);
-        timer.async_wait(stopProcedure);
+        mLoadTimer->expires_from_now(testDuration);
+        mLoadTimer->async_wait(stopProcedure);
     });
-}
-
-VirtualTimer&
-BenchmarkExecutor::getTimer(VirtualClock& clock)
-{
-    if (!mLoadTimer)
-    {
-        mLoadTimer = make_unique<VirtualTimer>(clock);
-    }
-    return *mLoadTimer;
 }
 }
