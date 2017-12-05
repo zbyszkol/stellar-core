@@ -42,8 +42,7 @@ initializeConfig()
                                 "password=__PGPASS__ host=localhost"};
     cfg->PUBLIC_HTTP_PORT = true;
     cfg->COMMANDS.push_back("ll?level=info");
-    cfg->DESIRED_MAX_TX_PER_LEDGER =
-        Benchmark::MAXIMAL_NUMBER_OF_TXS_PER_LEDGER;
+    cfg->DESIRED_MAX_TX_PER_LEDGER = 10000;
     cfg->FORCE_SCP = true;
     cfg->RUN_STANDALONE = false;
     cfg->BUCKET_DIR_PATH = "buckets";

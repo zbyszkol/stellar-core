@@ -20,9 +20,7 @@
 namespace stellar
 {
 
-const char* Benchmark::LOGGER_ID = "Benchmark";
-
-size_t Benchmark::MAXIMAL_NUMBER_OF_TXS_PER_LEDGER = 1000;
+const size_t Benchmark::MAXIMAL_NUMBER_OF_ACCOUNTS_BATCH = 10000;
 
 Benchmark::Benchmark(medida::MetricsRegistry& registry, uint32_t txRate,
                      std::unique_ptr<TxSampler> sampler)
@@ -70,21 +68,21 @@ Benchmark::Metrics::Metrics(medida::MetricsRegistry& registry)
 Benchmark::Metrics
 Benchmark::stopBenchmark()
 {
-    CLOG(INFO, LOGGER_ID) << "Stopping benchmark";
+    LOG(INFO) << "Stopping benchmark";
     if (!mIsRunning)
     {
         throw std::runtime_error{"Benchmark is already stopped"};
     }
     mBenchmarkTimeContext->Stop();
     mIsRunning = false;
-    CLOG(INFO, LOGGER_ID) << "Benchmark stopped";
+    LOG(INFO) << "Benchmark stopped";
     return mMetrics;
 }
 
 bool
 Benchmark::generateLoadForBenchmark(Application& app)
 {
-    CLOG(TRACE, LOGGER_ID) << "Generating " << mTxRate
+    LOG(TRACE) << "Generating " << mTxRate
                            << " transaction(s) per step";
 
     mBenchmarkTimeContext->Stop();
@@ -92,13 +90,13 @@ Benchmark::generateLoadForBenchmark(Application& app)
     mBenchmarkTimeContext->Reset();
     if (!txs->execute(app))
     {
-        CLOG(ERROR, LOGGER_ID) << "Error while executing a transaction: "
+        LOG(ERROR) << "Error while executing a transaction: "
             "transaction was rejected";
         return false;
     }
     mMetrics.txsCount.inc(mTxRate);
 
-    CLOG(TRACE, LOGGER_ID) << mTxRate
+    LOG(TRACE) << mTxRate
                            << " transaction(s) generated in a single step";
 
     return true;
@@ -187,7 +185,7 @@ Benchmark::BenchmarkBuilder::createBenchmark(Application& app) const
     };
     return make_unique<BenchmarkExt>(
         app.getMetrics(), mTxRate,
-        std::unique_ptr<TxSampler>(sampler.release()));
+        std::move(sampler));
 }
 
 void
@@ -204,7 +202,7 @@ Benchmark::BenchmarkBuilder::populateAccounts(
     for (size_t accountsLeft = size, batchSize = size; accountsLeft > 0;
          accountsLeft -= batchSize)
     {
-        batchSize = std::min(accountsLeft, MAXIMAL_NUMBER_OF_TXS_PER_LEDGER);
+        batchSize = std::min(accountsLeft, MAXIMAL_NUMBER_OF_ACCOUNTS_BATCH);
         auto newAccounts = sampler.createAccounts(batchSize);
         createAccountsDirectly(app, newAccounts);
     }
@@ -310,7 +308,7 @@ ShuffleLoadGenerator::createAccounts(size_t batchSize)
 void
 ShuffleLoadGenerator::initialize(Application& app, size_t numberOfAccounts)
 {
-    CLOG(INFO, Benchmark::LOGGER_ID) << "Initializing benchmark";
+    LOG(INFO) << "Initializing benchmark";
 
     if (mAccounts.empty())
     {
@@ -319,7 +317,7 @@ ShuffleLoadGenerator::initialize(Application& app, size_t numberOfAccounts)
     }
     mRandomIterator = shuffleAccounts(mAccounts);
 
-    CLOG(INFO, Benchmark::LOGGER_ID) << "Benchmark initialized";
+    LOG(INFO) << "Benchmark initialized";
 }
 
 LoadGenerator::AccountInfoPtr
@@ -368,7 +366,7 @@ BenchmarkExecutor::executeBenchmark(
             auto metrics = benchmark->stopBenchmark();
             stopCallback(metrics);
 
-            CLOG(INFO, Benchmark::LOGGER_ID) << "Benchmark complete.";
+            LOG(INFO) << "Benchmark complete.";
         };
 
         mLoadTimer->expires_from_now(testDuration);

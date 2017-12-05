@@ -23,8 +23,7 @@ class TxSampler;
 class Benchmark
 {
   public:
-    static size_t MAXIMAL_NUMBER_OF_TXS_PER_LEDGER;
-    static const char* LOGGER_ID;
+    static const size_t MAXIMAL_NUMBER_OF_ACCOUNTS_BATCH;
 
     class BenchmarkBuilder;
 
