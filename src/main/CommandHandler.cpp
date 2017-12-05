@@ -304,7 +304,7 @@ CommandHandler::fileNotFound(std::string const& params, std::string& retStr)
         "for more information</li></ul>"
         "</p><p><h1> /unban?node=NODE_ID</h1>"
         "remove ban for PEER_ID"
-        "</p><p><h1> /benchmark[?createaccounts=N | "
+        "</p><p><h1> /benchmark[?preparebenchmark=N | "
         "accounts=N&txrate=R&duration=T]</h1>"
         "start benchmark of stellar-core; must be used with "
         "ARTIFICIALLY_GENERATE_LOAD_FOR_TESTING set to true"
@@ -422,10 +422,10 @@ CommandHandler::benchmark(std::string const& params, std::string& retStr)
     std::map<std::string, std::string> map;
     http::server::server::parseParams(params, map);
 
-    if (!parseNumParam(map, "createaccounts", createAccounts, retStr,
+    if (!parseNumParam(map, "preparebenchmark", createAccounts, retStr,
                        Requirement::OPTIONAL_REQ))
     {
-        retStr = "Invalid value for the parameter 'createaccounts'";
+        retStr = "Invalid value for the parameter 'preparebenchmark'";
         return;
     }
 
@@ -461,13 +461,7 @@ CommandHandler::benchmark(std::string const& params, std::string& retStr)
         return;
     }
 
-    Benchmark::BenchmarkBuilder builder(mApp.getNetworkID());
-    builder.setNumberOfInitialAccounts(nAccounts)
-        .setTxRate(txRate)
-        .initializeBenchmark();
-
     mApp.getMetrics().NewMeter({"benchmark", "run", "started"}, "run").Mark();
-
     auto stopCallback = [this](Benchmark::Metrics metrics) {
 
         mApp.getMetrics()
@@ -476,6 +470,10 @@ CommandHandler::benchmark(std::string const& params, std::string& retStr)
         BenchmarkReporter().reportBenchmark(metrics, mApp.getMetrics(),
                                             LOG(INFO));
     };
+    Benchmark::BenchmarkBuilder builder(mApp.getNetworkID());
+    builder.setNumberOfInitialAccounts(nAccounts)
+        .setTxRate(txRate)
+        .initializeBenchmark();
     mApp.getBenchmarkExecutor().executeBenchmark(
         mApp, builder, std::chrono::seconds{duration}, stopCallback);
 

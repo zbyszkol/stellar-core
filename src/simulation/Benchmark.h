@@ -23,14 +23,12 @@ class TxSampler;
 class Benchmark
 {
   public:
-    static const size_t MAXIMAL_NUMBER_OF_ACCOUNTS_BATCH;
-
     class BenchmarkBuilder;
 
     struct Metrics
     {
-        medida::Timer& benchmarkTimer;
-        medida::Counter& txsCount;
+        medida::Timer& mBenchmarkTimer;
+        medida::Counter& mTxsCount;
 
       private:
         Metrics(medida::MetricsRegistry& registry);
@@ -57,6 +55,8 @@ class Benchmark
     std::unique_ptr<medida::TimerContext> mBenchmarkTimeContext;
     std::unique_ptr<VirtualTimer> mLoadTimer;
     std::unique_ptr<TxSampler> mSampler;
+
+    static const size_t MAXIMAL_NUMBER_OF_ACCOUNTS_IN_BATCH;
 };
 
 class ShuffleLoadGenerator;
@@ -76,8 +76,6 @@ class Benchmark::BenchmarkBuilder
                           ShuffleLoadGenerator& sampler) const;
     void populateAccounts(Application& app, size_t n,
                           ShuffleLoadGenerator& sampler) const;
-    LedgerCloseData createData(LedgerManager& ledger,
-                               StellarValue& value) const;
     void createAccountsDirectly(
         Application& app,
         std::vector<LoadGenerator::AccountInfoPtr>& accounts) const;
@@ -100,15 +98,15 @@ class TxSampler
     };
 
     virtual ~TxSampler() = default;
-    virtual std::unique_ptr<Tx> createTransactions(size_t size) = 0;
+    virtual std::unique_ptr<Tx> createTransaction(size_t size) = 0;
 };
 
-class ShuffleLoadGenerator : public LoadGenerator, public TxSampler
+class ShuffleLoadGenerator : public TxSampler, private LoadGenerator
 {
   public:
     ShuffleLoadGenerator(Hash const& networkID);
     virtual ~ShuffleLoadGenerator() = default;
-    virtual std::unique_ptr<Tx> createTransactions(size_t size) override;
+    virtual std::unique_ptr<Tx> createTransaction(size_t size) override;
     std::vector<LoadGenerator::AccountInfoPtr> createAccounts(size_t batchSize);
     void initialize(Application& app, size_t numberOfAccounts);
 
@@ -134,20 +132,18 @@ class BenchmarkExecutor
     std::unique_ptr<VirtualTimer> mLoadTimer;
 };
 
-struct BenchmarkReporter
+class BenchmarkReporter
 {
+public:
     template <typename Stream>
     void
     reportBenchmark(Benchmark::Metrics const& metrics,
                     medida::MetricsRegistry& metricsRegistry, Stream& str)
     {
-        using namespace std;
-        class ReportProcessor : public medida::MetricProcessor
+        struct ReportProcessor : medida::MetricProcessor
         {
-          public:
-            virtual ~ReportProcessor() = default;
             virtual void
-            Process(medida::Timer& timer)
+            Process(medida::Timer& timer) override
             {
                 count = timer.count();
             }
@@ -160,11 +156,12 @@ struct BenchmarkReporter
         externalizedTxs->Process(processor);
         auto txsExternalized = processor.count;
 
+        using std::endl;
         str << endl
             << "Benchmark metrics:" << endl
-            << "  time spent: " << metrics.benchmarkTimer.sum()
+            << "  time spent: " << metrics.mBenchmarkTimer.sum()
             << " milliseconds" << endl
-            << "  txs submitted: " << metrics.txsCount.count() << endl
+            << "  txs submitted: " << metrics.mTxsCount.count() << endl
             << "  txs externalized: " << txsExternalized << endl;
 
         medida::reporting::JsonReporter jr(metricsRegistry);

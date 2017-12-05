@@ -81,28 +81,20 @@ LoadGenerator::pickRandomAsset()
     return rand_element(sCurrencies);
 }
 
-VirtualTimer&
-LoadGenerator::getTimer(VirtualClock& clock)
-{
-    if (!mLoadTimer)
-    {
-        mLoadTimer = make_unique<VirtualTimer>(clock);
-    }
-    return *mLoadTimer;
-}
-
 // Schedule a callback to generateLoad() STEP_MSECS miliseconds from now.
 void
 LoadGenerator::scheduleLoadGeneration(Application& app, uint32_t nAccounts,
                                       uint32_t nTxs, uint32_t txRate,
                                       bool autoRate)
 {
-    VirtualTimer& timer = getTimer(app.getClock());
-
+    if (!mLoadTimer)
+    {
+        mLoadTimer = make_unique<VirtualTimer>(app.getClock());
+    }
     if (app.getState() == Application::APP_SYNCED_STATE)
     {
-        timer.expires_from_now(std::chrono::milliseconds(STEP_MSECS));
-        timer.async_wait([this, &app, nAccounts, nTxs, txRate,
+        mLoadTimer->expires_from_now(std::chrono::milliseconds(STEP_MSECS));
+        mLoadTimer->async_wait([this, &app, nAccounts, nTxs, txRate,
                           autoRate](asio::error_code const& error) {
             if (!error)
             {
@@ -114,8 +106,8 @@ LoadGenerator::scheduleLoadGeneration(Application& app, uint32_t nAccounts,
     {
         CLOG(WARNING, "LoadGen")
             << "Application is not in sync, load generation inhibited.";
-        timer.expires_from_now(std::chrono::seconds(10));
-        timer.async_wait([this, &app, nAccounts, nTxs, txRate,
+        mLoadTimer->expires_from_now(std::chrono::seconds(10));
+        mLoadTimer->async_wait([this, &app, nAccounts, nTxs, txRate,
                           autoRate](asio::error_code const& error) {
             if (!error)
             {

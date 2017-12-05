@@ -20,7 +20,7 @@
 namespace stellar
 {
 
-const size_t Benchmark::MAXIMAL_NUMBER_OF_ACCOUNTS_BATCH = 10000;
+const size_t Benchmark::MAXIMAL_NUMBER_OF_ACCOUNTS_IN_BATCH = 10000;
 
 Benchmark::Benchmark(medida::MetricsRegistry& registry, uint32_t txRate,
                      std::unique_ptr<TxSampler> sampler)
@@ -48,7 +48,7 @@ Benchmark::startBenchmark(Application& app)
     }
     mIsRunning = true;
     mBenchmarkTimeContext =
-        make_unique<medida::TimerContext>(mMetrics.benchmarkTimer.TimeScope());
+        make_unique<medida::TimerContext>(mMetrics.mBenchmarkTimer.TimeScope());
     scheduleLoad(app,
                  std::chrono::milliseconds{LoadGenerator::STEP_MSECS});
 }
@@ -60,8 +60,8 @@ Benchmark::initializeMetrics(medida::MetricsRegistry& registry)
 }
 
 Benchmark::Metrics::Metrics(medida::MetricsRegistry& registry)
-    : benchmarkTimer(registry.NewTimer({"benchmark", "overall", "time"}))
-    , txsCount(registry.NewCounter({"benchmark", "txs", "count"}))
+    : mBenchmarkTimer(registry.NewTimer({"benchmark", "overall", "time"}))
+    , mTxsCount(registry.NewCounter({"benchmark", "txs", "count"}))
 {
 }
 
@@ -86,7 +86,7 @@ Benchmark::generateLoadForBenchmark(Application& app)
                            << " transaction(s) per step";
 
     mBenchmarkTimeContext->Stop();
-    auto txs = mSampler->createTransactions(mTxRate);
+    auto txs = mSampler->createTransaction(mTxRate);
     mBenchmarkTimeContext->Reset();
     if (!txs->execute(app))
     {
@@ -94,10 +94,10 @@ Benchmark::generateLoadForBenchmark(Application& app)
             "transaction was rejected";
         return false;
     }
-    mMetrics.txsCount.inc(mTxRate);
+    mMetrics.mTxsCount.inc(mTxRate);
 
     LOG(TRACE) << mTxRate
-                           << " transaction(s) generated in a single step";
+               << " transaction(s) generated in a single step";
 
     return true;
 }
@@ -172,11 +172,9 @@ Benchmark::BenchmarkBuilder::createBenchmark(Application& app) const
     {
         sampler->initialize(app, mAccounts);
     }
-    app.getHerder().triggerNextLedger(app.getLedgerManager().getLedgerNum());
 
-    class BenchmarkExt : public Benchmark
+    struct BenchmarkExt : Benchmark
     {
-      public:
         BenchmarkExt(medida::MetricsRegistry& registry, uint32_t txRate,
                      std::unique_ptr<TxSampler> sampler)
             : Benchmark(registry, txRate, std::move(sampler))
@@ -202,21 +200,10 @@ Benchmark::BenchmarkBuilder::populateAccounts(
     for (size_t accountsLeft = size, batchSize = size; accountsLeft > 0;
          accountsLeft -= batchSize)
     {
-        batchSize = std::min(accountsLeft, MAXIMAL_NUMBER_OF_ACCOUNTS_BATCH);
+        batchSize = std::min(accountsLeft, MAXIMAL_NUMBER_OF_ACCOUNTS_IN_BATCH);
         auto newAccounts = sampler.createAccounts(batchSize);
         createAccountsDirectly(app, newAccounts);
     }
-}
-
-LedgerCloseData
-Benchmark::BenchmarkBuilder::createData(LedgerManager& ledger,
-                                        StellarValue& value) const
-{
-    auto ledgerNum = ledger.getLedgerNum();
-    TxSetFramePtr txSet =
-        std::make_shared<TxSetFrame>(ledger.getLastClosedLedgerHeader().hash);
-    value.txSetHash = txSet->getContentsHash();
-    return LedgerCloseData{ledgerNum, txSet, value};
 }
 
 void
@@ -253,11 +240,6 @@ Benchmark::BenchmarkBuilder::createAccountsDirectly(
     auto liveEntries = delta.getLiveEntries();
     live.insert(live.end(), liveEntries.begin(), liveEntries.end());
     app.getBucketManager().addBatch(app, ledger, live, {});
-
-    StellarValue sv(app.getLedgerManager().getLastClosedLedgerHeader().hash,
-                    ledger, emptyUpgradeSteps, 0);
-    LedgerCloseData ledgerData = createData(app.getLedgerManager(), sv);
-    app.getLedgerManager().closeLedger(ledgerData);
 }
 
 ShuffleLoadGenerator::ShuffleLoadGenerator(Hash const& networkID)
@@ -266,15 +248,10 @@ ShuffleLoadGenerator::ShuffleLoadGenerator(Hash const& networkID)
 }
 
 std::unique_ptr<TxSampler::Tx>
-ShuffleLoadGenerator::createTransactions(size_t size)
+ShuffleLoadGenerator::createTransaction(size_t size)
 {
-    class LoadGeneratorTx : public TxSampler::Tx
+    struct LoadGeneratorTx : TxSampler::Tx
     {
-      public:
-        LoadGeneratorTx()
-        {
-        }
-
         virtual bool
         execute(Application& app) override
         {

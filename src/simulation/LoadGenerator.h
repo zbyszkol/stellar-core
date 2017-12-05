@@ -179,8 +179,5 @@ class LoadGenerator
                                  TxMetrics& metrics);
         void recordExecution(int64_t baseFee);
     };
-
-  private:
-    VirtualTimer& getTimer(VirtualClock& clock);
 };
 }
