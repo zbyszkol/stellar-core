@@ -184,9 +184,7 @@ Benchmark::BenchmarkBuilder::createBenchmark(Application& app) const
     {
         sampler->initialize(app, mAccounts);
     }
-    setMaxTxSize(app.getLedgerManager(), MAXIMAL_NUMBER_OF_TXS_PER_LEDGER);
     app.getHerder().triggerNextLedger(app.getLedgerManager().getLedgerNum());
-    app.getHistoryManager().queueCurrentHistory();
 
     class BenchmarkExt : public Benchmark
     {
@@ -220,22 +218,6 @@ Benchmark::BenchmarkBuilder::populateAccounts(
         auto newAccounts = sampler.createAccounts(batchSize);
         createAccountsDirectly(app, newAccounts);
     }
-}
-
-void
-Benchmark::BenchmarkBuilder::setMaxTxSize(LedgerManager& ledger,
-                                          uint32_t maxTxSetSize) const
-{
-    StellarValue sv(ledger.getLastClosedLedgerHeader().hash,
-                    ledger.getLedgerNum(), emptyUpgradeSteps, 0);
-    {
-        LedgerUpgrade up(LEDGER_UPGRADE_MAX_TX_SET_SIZE);
-        up.newMaxTxSetSize() = maxTxSetSize;
-        Value v(xdr::xdr_to_opaque(up));
-        sv.upgrades.emplace_back(v.begin(), v.end());
-    }
-    LedgerCloseData ledgerData = createData(ledger, sv);
-    ledger.closeLedger(ledgerData);
 }
 
 LedgerCloseData

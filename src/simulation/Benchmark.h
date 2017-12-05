@@ -77,7 +77,6 @@ class Benchmark::BenchmarkBuilder
                           ShuffleLoadGenerator& sampler) const;
     void populateAccounts(Application& app, size_t n,
                           ShuffleLoadGenerator& sampler) const;
-    void setMaxTxSize(LedgerManager& ledger, uint32_t maxTxSetSize) const;
     LedgerCloseData createData(LedgerManager& ledger,
                                StellarValue& value) const;
     void createAccountsDirectly(
