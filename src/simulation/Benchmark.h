@@ -59,8 +59,6 @@ class Benchmark
     static const size_t MAXIMAL_NUMBER_OF_ACCOUNTS_IN_BATCH;
 };
 
-class TxSampler;
-
 class Benchmark::BenchmarkBuilder
 {
   public:
@@ -70,6 +68,7 @@ class Benchmark::BenchmarkBuilder
     BenchmarkBuilder& initializeBenchmark();
     BenchmarkBuilder& populateBenchmarkData();
     std::unique_ptr<Benchmark> createBenchmark(Application& app) const;
+    std::unique_ptr<TxSampler> createSampler(Application& app);
 
   private:
     void prepareBenchmark(Application& app,
@@ -83,7 +82,7 @@ class Benchmark::BenchmarkBuilder
     bool mInitialize;
     bool mPopulate;
     uint32_t mTxRate;
-    uint32_t mAccounts;
+    uint32_t mNumberOfAccounts;
     Hash mNetworkID;
 };
 

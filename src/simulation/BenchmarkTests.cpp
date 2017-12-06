@@ -10,29 +10,11 @@
 #include "util/Logging.h"
 #include "util/Timer.h"
 #include "util/make_unique.h"
+#include <chrono>
 #include <iostream>
 #include <memory>
 
 using namespace stellar;
-
-const char* LOGGER_ID = "Benchmark";
-
-std::unique_ptr<Benchmark>
-initializeBenchmark(Application& app)
-{
-    Benchmark::BenchmarkBuilder builder{app.getNetworkID()};
-    builder.initializeBenchmark();
-    return builder.createBenchmark(app);
-}
-
-void
-prepareBenchmark(Application& app)
-{
-    app.newDB();
-    Benchmark::BenchmarkBuilder builder{app.getNetworkID()};
-    builder.populateBenchmarkData()
-           .createBenchmark(app);
-}
 
 std::unique_ptr<Config>
 initializeConfig()
@@ -59,45 +41,44 @@ initializeConfig()
     return cfg;
 }
 
-TEST_CASE("stellar-core benchmark's initialization", "[benchmark][initialize]")
+TEST_CASE("stellar-core benchmark's initialization", "[benchmark][initialize][hide]")
 {
+    const size_t nAccounts = 1000;
     std::unique_ptr<Config> cfg = initializeConfig();
     VirtualClock clock(VirtualClock::REAL_TIME);
     Application::pointer app = Application::create(clock, *cfg, false);
     app->applyCfgCommands();
 
-    prepareBenchmark(*app);
+    Benchmark::BenchmarkBuilder builder{app->getNetworkID()};
+    builder.setNumberOfInitialAccounts(nAccounts)
+        .populateBenchmarkData()
+        .createBenchmark(*app);
+    std::unique_ptr<TxSampler> sampler = builder.createSampler(*app);
+    sampler->createTransaction(nAccounts)->execute(*app);
 }
 
-TEST_CASE("stellar-core's benchmark", "[benchmark]")
+TEST_CASE("stellar-core's benchmark", "[benchmark][hide]")
 {
-    auto testDuration = std::chrono::seconds(60 * 10);
+    const std::chrono::seconds testDuration(60 * 10);
+    const size_t nAccounts = 1000;
 
-    VirtualClock clock(VirtualClock::REAL_TIME);
     std::unique_ptr<Config> cfg = initializeConfig();
-
+    VirtualClock clock(VirtualClock::REAL_TIME);
     Application::pointer app = Application::create(clock, *cfg, false);
     app->applyCfgCommands();
-    app->start();
-    auto benchmark = initializeBenchmark(*app);
+
+    Benchmark::BenchmarkBuilder builder{app->getNetworkID()};
+    builder.setNumberOfInitialAccounts(nAccounts)
+           .populateBenchmarkData()
+           .initializeBenchmark();
     bool done = false;
-
-    VirtualTimer timer{clock};
-    benchmark->startBenchmark(*app);
-    timer.expires_from_now(testDuration);
-    timer.async_wait([&benchmark, &done, app](asio::error_code const& error) {
-        auto stopMetrics = benchmark->stopBenchmark();
-        BenchmarkReporter().reportBenchmark(stopMetrics, app->getMetrics(),
-                                            std::cout);
-        done = true;
-    });
-
+    BenchmarkExecutor executor;
+    executor.executeBenchmark(*app, builder, testDuration, [&done](Benchmark::Metrics metrics) {
+            done = true;
+        });
     while (!done)
     {
         clock.crank();
     }
     app->gracefulStop();
-
-    CLOG(INFO, LOGGER_ID) << "Benchmark complete.";
-    app->getMetrics().NewMeter({"benchmark", "run", "complete"}, "run").Mark();
 }

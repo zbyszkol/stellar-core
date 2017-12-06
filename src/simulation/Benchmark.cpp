@@ -127,7 +127,7 @@ Benchmark::BenchmarkBuilder::BenchmarkBuilder(Hash const& networkID)
     : mInitialize(false)
     , mPopulate(false)
     , mTxRate(0)
-    , mAccounts(0)
+    , mNumberOfAccounts(0)
     , mNetworkID(networkID)
 {
 }
@@ -135,7 +135,7 @@ Benchmark::BenchmarkBuilder::BenchmarkBuilder(Hash const& networkID)
 Benchmark::BenchmarkBuilder&
 Benchmark::BenchmarkBuilder::setNumberOfInitialAccounts(uint32_t accounts)
 {
-    mAccounts = accounts;
+    mNumberOfAccounts = accounts;
     return *this;
 }
 
@@ -170,7 +170,7 @@ Benchmark::BenchmarkBuilder::createBenchmark(Application& app) const
     }
     if (mInitialize)
     {
-        sampler->initialize(app, mAccounts);
+        sampler->initialize(app, mNumberOfAccounts);
     }
 
     struct BenchmarkExt : Benchmark
@@ -186,11 +186,19 @@ Benchmark::BenchmarkBuilder::createBenchmark(Application& app) const
         std::move(sampler));
 }
 
+std::unique_ptr<TxSampler>
+Benchmark::BenchmarkBuilder::createSampler(Application& app)
+{
+    auto sampler = make_unique<TxSampler>(mNetworkID);
+    sampler->initialize(app, mNumberOfAccounts);
+    return std::move(sampler);
+}
+
 void
 Benchmark::BenchmarkBuilder::prepareBenchmark(
     Application& app, TxSampler& sampler) const
 {
-    populateAccounts(app, mAccounts, sampler);
+    populateAccounts(app, mNumberOfAccounts, sampler);
 }
 
 void
