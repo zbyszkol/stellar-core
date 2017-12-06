@@ -163,7 +163,7 @@ Benchmark::BenchmarkBuilder::populateBenchmarkData()
 std::unique_ptr<Benchmark>
 Benchmark::BenchmarkBuilder::createBenchmark(Application& app) const
 {
-    auto sampler = make_unique<ShuffleLoadGenerator>(mNetworkID);
+    auto sampler = make_unique<TxSampler>(mNetworkID);
     if (mPopulate)
     {
         prepareBenchmark(app, *sampler);
@@ -188,14 +188,14 @@ Benchmark::BenchmarkBuilder::createBenchmark(Application& app) const
 
 void
 Benchmark::BenchmarkBuilder::prepareBenchmark(
-    Application& app, ShuffleLoadGenerator& sampler) const
+    Application& app, TxSampler& sampler) const
 {
     populateAccounts(app, mAccounts, sampler);
 }
 
 void
 Benchmark::BenchmarkBuilder::populateAccounts(
-    Application& app, size_t size, ShuffleLoadGenerator& sampler) const
+    Application& app, size_t size, TxSampler& sampler) const
 {
     for (size_t accountsLeft = size, batchSize = size; accountsLeft > 0;
          accountsLeft -= batchSize)
@@ -242,33 +242,29 @@ Benchmark::BenchmarkBuilder::createAccountsDirectly(
     app.getBucketManager().addBatch(app, ledger, live, {});
 }
 
-ShuffleLoadGenerator::ShuffleLoadGenerator(Hash const& networkID)
+TxSampler::TxSampler(Hash const& networkID)
     : LoadGenerator(networkID)
 {
 }
 
-std::unique_ptr<TxSampler::Tx>
-ShuffleLoadGenerator::createTransaction(size_t size)
+bool
+TxSampler::Tx::execute(Application& app)
 {
-    struct LoadGeneratorTx : TxSampler::Tx
+    for (auto& tx : mTxs)
     {
-        virtual bool
-        execute(Application& app) override
+        if (!tx.execute(app))
         {
-            for (auto& tx : mTxs)
-            {
-                if (!tx.execute(app))
-                {
-                    return false;
-                }
-            }
-            return true;
+            return false;
         }
+    }
+    return true;
+}
 
-        std::vector<LoadGenerator::TxInfo> mTxs;
-    };
 
-    auto result = make_unique<LoadGeneratorTx>();
+std::unique_ptr<TxSampler::Tx>
+TxSampler::createTransaction(size_t size)
+{
+    auto result = make_unique<TxSampler::Tx>();
     for (size_t it = 0; it < size; ++it)
     {
         result->mTxs.push_back(LoadGenerator::createRandomTransaction(0.5));
@@ -277,13 +273,13 @@ ShuffleLoadGenerator::createTransaction(size_t size)
 }
 
 std::vector<LoadGenerator::AccountInfoPtr>
-ShuffleLoadGenerator::createAccounts(size_t batchSize)
+TxSampler::createAccounts(size_t batchSize)
 {
     return LoadGenerator::createAccounts(batchSize);
 }
 
 void
-ShuffleLoadGenerator::initialize(Application& app, size_t numberOfAccounts)
+TxSampler::initialize(Application& app, size_t numberOfAccounts)
 {
     LOG(INFO) << "Initializing benchmark";
 
@@ -298,7 +294,7 @@ ShuffleLoadGenerator::initialize(Application& app, size_t numberOfAccounts)
 }
 
 LoadGenerator::AccountInfoPtr
-ShuffleLoadGenerator::pickRandomAccount(AccountInfoPtr tryToAvoid,
+TxSampler::pickRandomAccount(AccountInfoPtr tryToAvoid,
                                         uint32_t ledgerNum)
 {
     if (mRandomIterator == mAccounts.end())
@@ -311,7 +307,7 @@ ShuffleLoadGenerator::pickRandomAccount(AccountInfoPtr tryToAvoid,
 }
 
 std::vector<LoadGenerator::AccountInfoPtr>::iterator
-ShuffleLoadGenerator::shuffleAccounts(
+TxSampler::shuffleAccounts(
     std::vector<LoadGenerator::AccountInfoPtr>& accounts)
 {
     auto rng = std::default_random_engine{0};

@@ -59,7 +59,7 @@ class Benchmark
     static const size_t MAXIMAL_NUMBER_OF_ACCOUNTS_IN_BATCH;
 };
 
-class ShuffleLoadGenerator;
+class TxSampler;
 
 class Benchmark::BenchmarkBuilder
 {
@@ -73,9 +73,9 @@ class Benchmark::BenchmarkBuilder
 
   private:
     void prepareBenchmark(Application& app,
-                          ShuffleLoadGenerator& sampler) const;
+                          TxSampler& sampler) const;
     void populateAccounts(Application& app, size_t n,
-                          ShuffleLoadGenerator& sampler) const;
+                          TxSampler& sampler) const;
     void createAccountsDirectly(
         Application& app,
         std::vector<LoadGenerator::AccountInfoPtr>& accounts) const;
@@ -87,30 +87,17 @@ class Benchmark::BenchmarkBuilder
     Hash mNetworkID;
 };
 
-class TxSampler
+class TxSampler : private LoadGenerator
 {
   public:
-    class Tx
-    {
-      public:
-        virtual ~Tx() = default;
-        virtual bool execute(Application& app) = 0;
-    };
+    class Tx;
 
-    virtual ~TxSampler() = default;
-    virtual std::unique_ptr<Tx> createTransaction(size_t size) = 0;
-};
+    TxSampler(Hash const& networkID);
+    std::unique_ptr<Tx> createTransaction(size_t size);
 
-class ShuffleLoadGenerator : public TxSampler, private LoadGenerator
-{
-  public:
-    ShuffleLoadGenerator(Hash const& networkID);
-    virtual ~ShuffleLoadGenerator() = default;
-    virtual std::unique_ptr<Tx> createTransaction(size_t size) override;
-    std::vector<LoadGenerator::AccountInfoPtr> createAccounts(size_t batchSize);
+  private:
     void initialize(Application& app, size_t numberOfAccounts);
-
-  protected:
+    std::vector<LoadGenerator::AccountInfoPtr> createAccounts(size_t batchSize);
     virtual LoadGenerator::AccountInfoPtr
     pickRandomAccount(LoadGenerator::AccountInfoPtr tryToAvoid,
                       uint32_t ledgerNum) override;
@@ -118,6 +105,18 @@ class ShuffleLoadGenerator : public TxSampler, private LoadGenerator
     shuffleAccounts(std::vector<LoadGenerator::AccountInfoPtr>& accounts);
 
     std::vector<LoadGenerator::AccountInfoPtr>::iterator mRandomIterator;
+
+    friend class Benchmark::BenchmarkBuilder;
+};
+
+class TxSampler::Tx
+{
+public:
+    bool execute(Application& app);
+private:
+    std::vector<LoadGenerator::TxInfo> mTxs;
+
+    friend class TxSampler;
 };
 
 class BenchmarkExecutor
