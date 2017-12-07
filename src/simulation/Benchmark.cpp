@@ -120,6 +120,10 @@ Benchmark::scheduleLoad(Application& app, std::chrono::milliseconds stepTime)
             {
                 this->scheduleLoad(app, stepTime);
             }
+            else
+            {
+                stopBenchmark();
+            }
         });
 }
 
@@ -169,20 +173,6 @@ Benchmark::BenchmarkBuilder::populateBenchmarkData()
 }
 
 void
-populateAccounts(
-    Application& app, size_t size, TxSampler& sampler)
-{
-    for (size_t accountsLeft = size, batchSize = size; accountsLeft > 0;
-         accountsLeft -= batchSize)
-    {
-        batchSize = std::min(accountsLeft, MAXIMAL_NUMBER_OF_ACCOUNTS_IN_BATCH);
-        auto ledgerNum = app.getLedgerManager().getLedgerNum();
-        auto newAccounts = sampler.createAccounts(batchSize, ledgerNum);
-        createAccountsDirectly(app, newAccounts);
-    }
-}
-
-void
 createAccountsDirectly(
     Application& app,
     std::vector<LoadGenerator::AccountInfoPtr>& createdAccounts)
@@ -215,6 +205,20 @@ createAccountsDirectly(
     auto liveEntries = delta.getLiveEntries();
     live.insert(live.end(), liveEntries.begin(), liveEntries.end());
     app.getBucketManager().addBatch(app, ledger, live, {});
+}
+
+void
+populateAccounts(
+    Application& app, size_t size, TxSampler& sampler)
+{
+    for (size_t accountsLeft = size, batchSize = size; accountsLeft > 0;
+         accountsLeft -= batchSize)
+    {
+        batchSize = std::min(accountsLeft, MAXIMAL_NUMBER_OF_ACCOUNTS_IN_BATCH);
+        auto ledgerNum = app.getLedgerManager().getLedgerNum();
+        auto newAccounts = sampler.createAccounts(batchSize, ledgerNum);
+        createAccountsDirectly(app, newAccounts);
+    }
 }
 
 std::unique_ptr<Benchmark>

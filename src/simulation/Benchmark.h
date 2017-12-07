@@ -24,6 +24,8 @@ class TxSampler;
 
 class Benchmark
 {
+    static const uint32_t STEP_MSECS;
+
   public:
     class BenchmarkBuilder;
 
@@ -57,15 +59,7 @@ class Benchmark
     std::unique_ptr<medida::TimerContext> mBenchmarkTimeContext;
     std::unique_ptr<VirtualTimer> mLoadTimer;
     std::unique_ptr<TxSampler> mSampler;
-    static const uint32_t STEP_MSECS;
 };
-
-void populateAccounts(Application& app, size_t n,
-                      TxSampler& sampler);
-
-void createAccountsDirectly(
-    Application& app,
-    std::vector<LoadGenerator::AccountInfoPtr>& accounts);
 
 class Benchmark::BenchmarkBuilder
 {
@@ -107,8 +101,6 @@ class TxSampler : private LoadGenerator
     shuffleAccounts(std::vector<LoadGenerator::AccountInfoPtr>& accounts);
 
     std::vector<LoadGenerator::AccountInfoPtr>::iterator mRandomIterator;
-
-    friend class Benchmark::BenchmarkBuilder;
 };
 
 class TxSampler::Tx
@@ -117,7 +109,6 @@ public:
     bool execute(Application& app);
 private:
     std::vector<LoadGenerator::TxInfo> mTxs;
-
     friend class TxSampler;
 };
 
