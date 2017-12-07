@@ -433,7 +433,6 @@ CommandHandler::benchmark(std::string const& params, std::string& retStr)
         Benchmark::BenchmarkBuilder builder(mApp.getNetworkID());
         auto benchmark = builder.setNumberOfInitialAccounts(createAccounts)
             .populateBenchmarkData()
-            .loadAccounts()
             .initializeBenchmark()
             .createBenchmark(mApp);
         mApp.getBenchmarkExecutor().setBenchmark(std::move(benchmark));

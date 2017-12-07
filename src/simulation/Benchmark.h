@@ -96,7 +96,7 @@ class TxSampler : private LoadGenerator
     void initialize(Application& app, size_t numberOfAccounts);
     void loadAccounts(Application& app);
     std::unique_ptr<Tx> createTransaction(size_t size);
-    std::vector<LoadGenerator::AccountInfoPtr> createAccounts(size_t batchSize);
+    std::vector<LoadGenerator::AccountInfoPtr> createAccounts(size_t batchSize, uint32_t ledgerNum);
 
   private:
     virtual LoadGenerator::AccountInfoPtr

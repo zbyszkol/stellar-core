@@ -174,7 +174,8 @@ populateAccounts(
          accountsLeft -= batchSize)
     {
         batchSize = std::min(accountsLeft, MAXIMAL_NUMBER_OF_ACCOUNTS_IN_BATCH);
-        auto newAccounts = sampler.createAccounts(batchSize);
+        auto ledgerNum = app.getLedgerManager().getLedgerNum();
+        auto newAccounts = sampler.createAccounts(batchSize, ledgerNum);
         createAccountsDirectly(app, newAccounts);
     }
 }
@@ -283,9 +284,9 @@ TxSampler::createTransaction(size_t size)
 }
 
 std::vector<LoadGenerator::AccountInfoPtr>
-TxSampler::createAccounts(size_t batchSize)
+TxSampler::createAccounts(size_t batchSize, uint32_t ledgerNum)
 {
-    return LoadGenerator::createAccounts(batchSize);
+    return LoadGenerator::createAccounts(batchSize, ledgerNum);
 }
 
 void
