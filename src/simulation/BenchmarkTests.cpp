@@ -4,7 +4,6 @@
 
 #include "simulation/Benchmark.h"
 #include "lib/catch.hpp"
-#include "simulation/Benchmark.h"
 #include "test/test.h"
 #include "util/Timer.h"
 #include "util/make_unique.h"

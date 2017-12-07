@@ -11,6 +11,7 @@
 #include "medida/timer.h"
 #include "simulation/LoadGenerator.h"
 #include "util/Timer.h"
+#include "xdr/Stellar-types.h"
 #include <chrono>
 #include <memory>
 #include <vector>

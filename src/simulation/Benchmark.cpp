@@ -6,7 +6,6 @@
 
 #include "bucket/BucketManager.h"
 #include "database/Database.h"
-#include "herder/Herder.h"
 #include "ledger/LedgerDelta.h"
 #include "util/Logging.h"
 #include "util/make_unique.h"
