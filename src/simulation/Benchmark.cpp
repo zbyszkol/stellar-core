@@ -48,8 +48,7 @@ Benchmark::startBenchmark(Application& app)
     mIsRunning = true;
     mBenchmarkTimeContext =
         make_unique<medida::TimerContext>(mMetrics.mBenchmarkTimer.TimeScope());
-    scheduleLoad(app,
-                 std::chrono::milliseconds{STEP_MSECS});
+    scheduleLoad(app, std::chrono::milliseconds{STEP_MSECS});
 }
 
 Benchmark::Metrics::Metrics(medida::MetricsRegistry& registry)
@@ -81,8 +80,7 @@ Benchmark::setTxRate(uint32_t txRate)
 bool
 Benchmark::generateLoadForBenchmark(Application& app)
 {
-    LOG(TRACE) << "Generating " << mTxRate
-                           << " transaction(s)";
+    LOG(TRACE) << "Generating " << mTxRate << " transaction(s)";
 
     mBenchmarkTimeContext->Stop();
     auto txs = mSampler->createTransaction(mTxRate);
@@ -90,13 +88,12 @@ Benchmark::generateLoadForBenchmark(Application& app)
     if (!txs->execute(app))
     {
         LOG(ERROR) << "Error while executing a transaction: "
-            "transaction was rejected";
+                      "transaction was rejected";
         return false;
     }
     mMetrics.mTxsCount.inc(mTxRate);
 
-    LOG(TRACE) << mTxRate
-               << " transaction(s) generated in a single step";
+    LOG(TRACE) << mTxRate << " transaction(s) generated in a single step";
 
     return true;
 }
@@ -207,8 +204,7 @@ createAccountsDirectly(
 }
 
 void
-populateAccounts(
-    Application& app, size_t size, TxSampler& sampler)
+populateAccounts(Application& app, size_t size, TxSampler& sampler)
 {
     for (size_t accountsLeft = size, batchSize = size; accountsLeft > 0;
          accountsLeft -= batchSize)
@@ -245,9 +241,8 @@ Benchmark::BenchmarkBuilder::createBenchmark(Application& app) const
         {
         }
     };
-    return make_unique<BenchmarkExt>(
-        app.getMetrics(), mTxRate,
-        std::move(sampler));
+    return make_unique<BenchmarkExt>(app.getMetrics(), mTxRate,
+                                     std::move(sampler));
 }
 
 std::unique_ptr<TxSampler>
@@ -258,8 +253,7 @@ Benchmark::BenchmarkBuilder::createSampler(Application& app)
     return sampler;
 }
 
-TxSampler::TxSampler(Hash const& networkID)
-    : LoadGenerator(networkID)
+TxSampler::TxSampler(Hash const& networkID) : LoadGenerator(networkID)
 {
 }
 
@@ -275,7 +269,6 @@ TxSampler::Tx::execute(Application& app)
     }
     return true;
 }
-
 
 std::unique_ptr<TxSampler::Tx>
 TxSampler::createTransaction(size_t size)
@@ -311,8 +304,7 @@ TxSampler::loadAccounts(Application& app)
 }
 
 LoadGenerator::AccountInfoPtr
-TxSampler::pickRandomAccount(AccountInfoPtr tryToAvoid,
-                                        uint32_t ledgerNum)
+TxSampler::pickRandomAccount(AccountInfoPtr tryToAvoid, uint32_t ledgerNum)
 {
     if (mRandomIterator == mAccounts.end())
     {
@@ -324,8 +316,7 @@ TxSampler::pickRandomAccount(AccountInfoPtr tryToAvoid,
 }
 
 std::vector<LoadGenerator::AccountInfoPtr>::iterator
-TxSampler::shuffleAccounts(
-    std::vector<LoadGenerator::AccountInfoPtr>& accounts)
+TxSampler::shuffleAccounts(std::vector<LoadGenerator::AccountInfoPtr>& accounts)
 {
     auto rng = std::default_random_engine{0};
     std::shuffle(mAccounts.begin(), mAccounts.end(), rng);
@@ -333,14 +324,14 @@ TxSampler::shuffleAccounts(
 }
 
 void
-BenchmarkExecutor::executeBenchmark(Application& app,
-    std::chrono::seconds testDuration,
-    uint32_t txRate,
+BenchmarkExecutor::executeBenchmark(
+    Application& app, std::chrono::seconds testDuration, uint32_t txRate,
     std::function<void(Benchmark::Metrics)> stopCallback)
 {
     if (!mBenchmark)
     {
-        LOG(INFO) << "Benchmark was not initialized - benchmark's execution stopped";
+        LOG(INFO)
+            << "Benchmark was not initialized - benchmark's execution stopped";
         return;
     }
     mBenchmark->setTxRate(txRate);
@@ -351,11 +342,12 @@ BenchmarkExecutor::executeBenchmark(Application& app,
     }
     mLoadTimer->expires_from_now(std::chrono::milliseconds{1});
     mLoadTimer->async_wait([this, &app, testDuration,
-                      stopCallback](asio::error_code const& error) {
+                            stopCallback](asio::error_code const& error) {
 
         mBenchmark->startBenchmark(app);
 
-        auto stopProcedure = [this, stopCallback](asio::error_code const& error) {
+        auto stopProcedure = [this,
+                              stopCallback](asio::error_code const& error) {
 
             auto metrics = mBenchmark->stopBenchmark();
             stopCallback(metrics);

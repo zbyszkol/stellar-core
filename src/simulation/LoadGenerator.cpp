@@ -95,7 +95,7 @@ LoadGenerator::scheduleLoadGeneration(Application& app, uint32_t nAccounts,
     {
         mLoadTimer->expires_from_now(std::chrono::milliseconds(STEP_MSECS));
         mLoadTimer->async_wait([this, &app, nAccounts, nTxs, txRate,
-                          autoRate](asio::error_code const& error) {
+                                autoRate](asio::error_code const& error) {
             if (!error)
             {
                 this->generateLoad(app, nAccounts, nTxs, txRate, autoRate);
@@ -108,7 +108,7 @@ LoadGenerator::scheduleLoadGeneration(Application& app, uint32_t nAccounts,
             << "Application is not in sync, load generation inhibited.";
         mLoadTimer->expires_from_now(std::chrono::seconds(10));
         mLoadTimer->async_wait([this, &app, nAccounts, nTxs, txRate,
-                          autoRate](asio::error_code const& error) {
+                                autoRate](asio::error_code const& error) {
             if (!error)
             {
                 this->scheduleLoadGeneration(app, nAccounts, nTxs, txRate,

@@ -12,8 +12,8 @@
 
 using namespace stellar;
 
-
-TEST_CASE("stellar-core benchmark's initialization", "[benchmark][initialize][hide]")
+TEST_CASE("stellar-core benchmark's initialization",
+          "[benchmark][initialize][hide]")
 {
     const size_t nAccounts = 1000;
     Config const& cfg = getTestConfig();
@@ -23,8 +23,7 @@ TEST_CASE("stellar-core benchmark's initialization", "[benchmark][initialize][hi
     app->start();
 
     Benchmark::BenchmarkBuilder builder{app->getNetworkID()};
-    builder.setNumberOfInitialAccounts(nAccounts)
-           .populateBenchmarkData();
+    builder.setNumberOfInitialAccounts(nAccounts).populateBenchmarkData();
     std::unique_ptr<Benchmark> benchmark = builder.createBenchmark(*app);
     REQUIRE(benchmark);
     std::unique_ptr<TxSampler> sampler = builder.createSampler(*app);
@@ -49,14 +48,14 @@ TEST_CASE("stellar-core's benchmark", "[benchmark][execute][hide]")
 
     Benchmark::BenchmarkBuilder builder{app->getNetworkID()};
     builder.setNumberOfInitialAccounts(nAccounts)
-           .populateBenchmarkData()
-           .initializeBenchmark();
+        .populateBenchmarkData()
+        .initializeBenchmark();
     bool done = false;
     BenchmarkExecutor executor;
     executor.setBenchmark(builder.createBenchmark(*app));
-    executor.executeBenchmark(*app, testDuration, txRate, [&done](Benchmark::Metrics metrics) {
-            done = true;
-        });
+    executor.executeBenchmark(
+        *app, testDuration, txRate,
+        [&done](Benchmark::Metrics metrics) { done = true; });
     while (!done)
     {
         clock.crank();

@@ -51,8 +51,7 @@ class Benchmark
 
   private:
     bool generateLoadForBenchmark(Application& app);
-    void scheduleLoad(Application& app,
-                      std::chrono::milliseconds stepTime);
+    void scheduleLoad(Application& app, std::chrono::milliseconds stepTime);
 
     bool mIsRunning;
     uint32_t mTxRate;
@@ -92,7 +91,8 @@ class TxSampler : private LoadGenerator
     void initialize(Application& app, size_t numberOfAccounts);
     void loadAccounts(Application& app);
     std::unique_ptr<Tx> createTransaction(size_t size);
-    std::vector<LoadGenerator::AccountInfoPtr> createAccounts(size_t batchSize, uint32_t ledgerNum);
+    std::vector<LoadGenerator::AccountInfoPtr>
+    createAccounts(size_t batchSize, uint32_t ledgerNum);
 
   private:
     virtual LoadGenerator::AccountInfoPtr
@@ -106,9 +106,10 @@ class TxSampler : private LoadGenerator
 
 class TxSampler::Tx
 {
-public:
+  public:
     bool execute(Application& app);
-private:
+
+  private:
     std::vector<LoadGenerator::TxInfo> mTxs;
     friend class TxSampler;
 };
@@ -116,8 +117,7 @@ private:
 class BenchmarkExecutor
 {
   public:
-    void executeBenchmark(Application& app,
-                          std::chrono::seconds testDuration,
+    void executeBenchmark(Application& app, std::chrono::seconds testDuration,
                           uint32_t txRate,
                           std::function<void(Benchmark::Metrics)> stopCallback);
     void setBenchmark(std::unique_ptr<Benchmark> benchmark);
@@ -136,9 +136,9 @@ reportBenchmark(Benchmark::Metrics const& metrics,
     {
         virtual void
         Process(medida::Timer& timer) override
-            {
-                count = timer.count();
-            }
+        {
+            count = timer.count();
+        }
 
         std::uint64_t count;
     };
@@ -151,8 +151,8 @@ reportBenchmark(Benchmark::Metrics const& metrics,
     using std::endl;
     str << endl
         << "Benchmark metrics:" << endl
-        << "  time spent: " << metrics.mBenchmarkTimer.sum()
-        << " milliseconds" << endl
+        << "  time spent: " << metrics.mBenchmarkTimer.sum() << " milliseconds"
+        << endl
         << "  txs submitted: " << metrics.mTxsCount.count() << endl
         << "  txs externalized: " << txsExternalized << endl;
 
