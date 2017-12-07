@@ -414,28 +414,26 @@ CommandHandler::benchmark(std::string const& params, std::string& retStr)
         return;
     }
 
-    uint32 createAccounts = 0;
-    uint32_t txRate = 1000;
-    uint32_t duration = 60 * 10;
+    uint32 createAccounts = 10000;
+    uint32_t txRate = 200;
+    uint32_t duration = 60;
 
     std::map<std::string, std::string> map;
     http::server::server::parseParams(params, map);
 
-    if (!parseNumParam(map, "preparebenchmark", createAccounts, retStr,
-                       Requirement::OPTIONAL_REQ))
+    if (map.find("preparebenchmark"))
     {
-        retStr = "Invalid value for the parameter 'preparebenchmark'";
-        return;
-    }
-
-    if (createAccounts > 0)
-    {
+        if (!parseNumParam(map, "preparebenchmark", createAccounts, retStr,
+                           Requirement::OPTIONAL_REQ))
+        {
+            retStr = "Invalid value for the parameter 'preparebenchmark'";
+            return;
+        }
         Benchmark::BenchmarkBuilder builder(mApp.getNetworkID());
         auto benchmark = builder.setNumberOfInitialAccounts(createAccounts)
             .populateBenchmarkData()
-            .initializeBenchmark()
-            .createBenchmark(mApp);
-        mApp.getBenchmarkExecutor().setBenchmark(std::move(benchmark));
+            .initializeBenchmark();
+        mApp.getBenchmarkExecutor().setBenchmark(builder.createBenchmark(mApp));
 
         retStr = fmt::format("{{\"createdAccounts\": {:d}}}", createAccounts);
         return;
