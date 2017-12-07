@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <chrono>
 #include <functional>
+#include <iterator>
 #include <memory>
 #include <random>
 #include <vector>
@@ -198,13 +199,14 @@ createAccountsDirectly(
 
 void
 populateAccounts(Application& app,
-                 std::vector<LoadGenerator::AccountInfoPtr>& createdAccounts)
+                 std::vector<LoadGenerator::AccountInfoPtr>::const_iterator createdStart,
+                 std::vector<LoadGenerator::AccountInfoPtr>::const_iterator createdEnd)
 {
-    std::vector<LoadGenerator::AccountInfoPtr>::const_iterator start = createdAccounts.begin();
-    std::vector<LoadGenerator::AccountInfoPtr>::const_iterator end = createdAccounts.end();
-    size_t accountsLeft = createdAccounts.size();
+    std::vector<LoadGenerator::AccountInfoPtr>::const_iterator start = createdStart;
+    std::vector<LoadGenerator::AccountInfoPtr>::const_iterator end = createdEnd;
+    size_t accountsLeft = std::distance(createdStart, createdEnd);
     size_t batchSize = accountsLeft;
-    for (; start != createdAccounts.end(); start = end, accountsLeft -= batchSize)
+    for (; start != createdEnd; start = end, accountsLeft -= batchSize)
     {
         batchSize = std::min(accountsLeft, MAXIMAL_NUMBER_OF_ACCOUNTS_IN_BATCH);
         end = start + batchSize;
@@ -238,7 +240,7 @@ Benchmark::BenchmarkBuilder::createSampler(Application& app) const
     auto createdAccounts = sampler->createAccounts(mNumberOfAccounts, app.getLedgerManager().getLedgerNum());
     if (mPopulate)
     {
-        populateAccounts(app, createdAccounts);
+        populateAccounts(app, sampler->mAccounts.cbegin() + 1, sampler->mAccounts.cend());
     }
     if (mLoadAccounts)
     {

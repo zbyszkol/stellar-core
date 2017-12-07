@@ -100,6 +100,7 @@ class TxSampler : private LoadGenerator
     shuffleAccounts(std::vector<LoadGenerator::AccountInfoPtr>& accounts);
 
     std::vector<LoadGenerator::AccountInfoPtr>::iterator mRandomIterator;
+    friend class Benchmark::BenchmarkBuilder;
 };
 
 class TxSampler::Tx
