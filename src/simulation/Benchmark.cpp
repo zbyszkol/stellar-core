@@ -124,8 +124,7 @@ Benchmark::scheduleLoad(Application& app, std::chrono::milliseconds stepTime)
 }
 
 Benchmark::BenchmarkBuilder::BenchmarkBuilder(Hash const& networkID)
-    : mInitialize(false)
-    , mPopulate(false)
+    : mPopulate(false)
     , mTxRate(0)
     , mNumberOfAccounts(0)
     , mNetworkID(networkID)
@@ -148,13 +147,6 @@ Benchmark::BenchmarkBuilder::setTxRate(uint32_t txRate)
 }
 
 Benchmark::BenchmarkBuilder&
-Benchmark::BenchmarkBuilder::initializeBenchmark()
-{
-    mInitialize = true;
-    return *this;
-}
-
-Benchmark::BenchmarkBuilder&
 Benchmark::BenchmarkBuilder::loadAccounts()
 {
     mLoadAccounts = true;
@@ -171,7 +163,8 @@ Benchmark::BenchmarkBuilder::populateBenchmarkData()
 void
 createAccountsDirectly(
     Application& app,
-    std::vector<LoadGenerator::AccountInfoPtr>& createdAccounts)
+    std::vector<LoadGenerator::AccountInfoPtr>::const_iterator createdStart,
+    std::vector<LoadGenerator::AccountInfoPtr>::const_iterator createdEnd)
 {
     soci::transaction sqlTx(app.getDatabase().getSession());
 
@@ -179,7 +172,7 @@ createAccountsDirectly(
     int64_t balanceDiff = 0;
     std::vector<LedgerEntry> live;
     std::transform(
-        createdAccounts.begin(), createdAccounts.end(),
+        createdStart, createdEnd,
         std::back_inserter(live),
         [&app, &balanceDiff](LoadGenerator::AccountInfoPtr const& account) {
             AccountFrame aFrame = account->createDirectly(app);
@@ -204,34 +197,27 @@ createAccountsDirectly(
 }
 
 void
-populateAccounts(Application& app, size_t size, TxSampler& sampler)
+populateAccounts(Application& app,
+                 std::vector<LoadGenerator::AccountInfoPtr>& createdAccounts)
 {
-    for (size_t accountsLeft = size, batchSize = size; accountsLeft > 0;
-         accountsLeft -= batchSize)
+    std::vector<LoadGenerator::AccountInfoPtr>::const_iterator start = createdAccounts.begin();
+    std::vector<LoadGenerator::AccountInfoPtr>::const_iterator end = createdAccounts.end();
+    size_t accountsLeft = createdAccounts.size();
+    size_t batchSize = accountsLeft;
+    for (; start != createdAccounts.end(); start = end, accountsLeft -= batchSize)
     {
         batchSize = std::min(accountsLeft, MAXIMAL_NUMBER_OF_ACCOUNTS_IN_BATCH);
+        end = start + batchSize;
+
         auto ledgerNum = app.getLedgerManager().getLedgerNum();
-        auto newAccounts = sampler.createAccounts(batchSize, ledgerNum);
-        createAccountsDirectly(app, newAccounts);
+        createAccountsDirectly(app, start, end);
     }
 }
 
 std::unique_ptr<Benchmark>
 Benchmark::BenchmarkBuilder::createBenchmark(Application& app) const
 {
-    auto sampler = make_unique<TxSampler>(mNetworkID);
-    if (mPopulate)
-    {
-        populateAccounts(app, mNumberOfAccounts, *sampler);
-    }
-    if (mInitialize)
-    {
-        sampler->initialize(app, mNumberOfAccounts);
-    }
-    if (mLoadAccounts)
-    {
-        sampler->loadAccounts(app);
-    }
+    std::unique_ptr<TxSampler> sampler = createSampler(app);
 
     struct BenchmarkExt : Benchmark
     {
@@ -246,10 +232,20 @@ Benchmark::BenchmarkBuilder::createBenchmark(Application& app) const
 }
 
 std::unique_ptr<TxSampler>
-Benchmark::BenchmarkBuilder::createSampler(Application& app)
+Benchmark::BenchmarkBuilder::createSampler(Application& app) const
 {
     auto sampler = make_unique<TxSampler>(mNetworkID);
-    sampler->initialize(app, mNumberOfAccounts);
+    auto createdAccounts = sampler->createAccounts(mNumberOfAccounts, app.getLedgerManager().getLedgerNum());
+    if (mPopulate)
+    {
+        populateAccounts(app, createdAccounts);
+    }
+    if (mLoadAccounts)
+    {
+        sampler->loadAccounts(app);
+    }
+    sampler->initialize(app);
+
     return sampler;
 }
 
@@ -288,7 +284,7 @@ TxSampler::createAccounts(size_t batchSize, uint32_t ledgerNum)
 }
 
 void
-TxSampler::initialize(Application& app, size_t numberOfAccounts)
+TxSampler::initialize(Application& app)
 {
     LOG(INFO) << "Initializing benchmark";
 

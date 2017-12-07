@@ -67,14 +67,12 @@ class Benchmark::BenchmarkBuilder
     BenchmarkBuilder(Hash const& networkID);
     BenchmarkBuilder& setNumberOfInitialAccounts(uint32_t accounts);
     BenchmarkBuilder& setTxRate(uint32_t txRate);
-    BenchmarkBuilder& initializeBenchmark();
     BenchmarkBuilder& loadAccounts();
     BenchmarkBuilder& populateBenchmarkData();
     std::unique_ptr<Benchmark> createBenchmark(Application& app) const;
-    std::unique_ptr<TxSampler> createSampler(Application& app);
+    std::unique_ptr<TxSampler> createSampler(Application& app) const;
 
   private:
-    bool mInitialize;
     bool mPopulate;
     uint32_t mTxRate;
     uint32_t mNumberOfAccounts;
@@ -88,7 +86,7 @@ class TxSampler : private LoadGenerator
     class Tx;
 
     TxSampler(Hash const& networkID);
-    void initialize(Application& app, size_t numberOfAccounts);
+    void initialize(Application& app);
     void loadAccounts(Application& app);
     std::unique_ptr<Tx> createTransaction(size_t size);
     std::vector<LoadGenerator::AccountInfoPtr>

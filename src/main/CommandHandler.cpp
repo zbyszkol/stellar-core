@@ -431,8 +431,7 @@ CommandHandler::benchmark(std::string const& params, std::string& retStr)
     {
         Benchmark::BenchmarkBuilder builder(mApp.getNetworkID());
         auto benchmark = builder.setNumberOfInitialAccounts(createAccounts)
-                             .populateBenchmarkData()
-                             .initializeBenchmark();
+                             .populateBenchmarkData();
         mApp.getBenchmarkExecutor().setBenchmark(builder.createBenchmark(mApp));
 
         retStr = fmt::format("{{\"createdAccounts\": {:d}}}", createAccounts);
