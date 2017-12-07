@@ -8,7 +8,6 @@
 #include "main/Application.h"
 #include "test/TxTests.h"
 #include "xdr/Stellar-types.h"
-#include <functional>
 #include <vector>
 
 namespace medida

@@ -20,13 +20,11 @@
 namespace stellar
 {
 
-const size_t Benchmark::MAXIMAL_NUMBER_OF_ACCOUNTS_IN_BATCH = 10000;
-
 Benchmark::Benchmark(medida::MetricsRegistry& registry, uint32_t txRate,
                      std::unique_ptr<TxSampler> sampler)
     : mIsRunning(false)
-    , mTxRate(txRate * LoadGenerator::STEP_MSECS / 1000)
-    , mMetrics(initializeMetrics(registry))
+    , mTxRate(txRate)
+    , mMetrics(Benchmark::Metrics(registry))
     , mSampler(std::move(sampler))
 {
 }
@@ -53,12 +51,6 @@ Benchmark::startBenchmark(Application& app)
                  std::chrono::milliseconds{LoadGenerator::STEP_MSECS});
 }
 
-Benchmark::Metrics
-Benchmark::initializeMetrics(medida::MetricsRegistry& registry)
-{
-    return Benchmark::Metrics(registry);
-}
-
 Benchmark::Metrics::Metrics(medida::MetricsRegistry& registry)
     : mBenchmarkTimer(registry.NewTimer({"benchmark", "overall", "time"}))
     , mTxsCount(registry.NewCounter({"benchmark", "txs", "count"}))
@@ -75,15 +67,21 @@ Benchmark::stopBenchmark()
     }
     mBenchmarkTimeContext->Stop();
     mIsRunning = false;
-    LOG(INFO) << "Benchmark stopped";
+    LOG(INFO) << "Benchmark stopping procedure finished";
     return mMetrics;
+}
+
+void
+Benchmark::setTxRate(uint32_t txRate)
+{
+    mTxRate = txRate;
 }
 
 bool
 Benchmark::generateLoadForBenchmark(Application& app)
 {
     LOG(TRACE) << "Generating " << mTxRate
-                           << " transaction(s) per step";
+                           << " transaction(s)";
 
     mBenchmarkTimeContext->Stop();
     auto txs = mSampler->createTransaction(mTxRate);
@@ -129,6 +127,7 @@ Benchmark::BenchmarkBuilder::BenchmarkBuilder(Hash const& networkID)
     , mTxRate(0)
     , mNumberOfAccounts(0)
     , mNetworkID(networkID)
+    , mLoadAccounts(false)
 {
 }
 
@@ -154,56 +153,22 @@ Benchmark::BenchmarkBuilder::initializeBenchmark()
 }
 
 Benchmark::BenchmarkBuilder&
+Benchmark::BenchmarkBuilder::loadAccounts()
+{
+    mLoadAccounts = true;
+    return *this;
+}
+
+Benchmark::BenchmarkBuilder&
 Benchmark::BenchmarkBuilder::populateBenchmarkData()
 {
     mPopulate = true;
     return *this;
 }
 
-std::unique_ptr<Benchmark>
-Benchmark::BenchmarkBuilder::createBenchmark(Application& app) const
-{
-    auto sampler = make_unique<TxSampler>(mNetworkID);
-    if (mPopulate)
-    {
-        prepareBenchmark(app, *sampler);
-    }
-    if (mInitialize)
-    {
-        sampler->initialize(app, mNumberOfAccounts);
-    }
-
-    struct BenchmarkExt : Benchmark
-    {
-        BenchmarkExt(medida::MetricsRegistry& registry, uint32_t txRate,
-                     std::unique_ptr<TxSampler> sampler)
-            : Benchmark(registry, txRate, std::move(sampler))
-        {
-        }
-    };
-    return make_unique<BenchmarkExt>(
-        app.getMetrics(), mTxRate,
-        std::move(sampler));
-}
-
-std::unique_ptr<TxSampler>
-Benchmark::BenchmarkBuilder::createSampler(Application& app)
-{
-    auto sampler = make_unique<TxSampler>(mNetworkID);
-    sampler->initialize(app, mNumberOfAccounts);
-    return std::move(sampler);
-}
-
 void
-Benchmark::BenchmarkBuilder::prepareBenchmark(
-    Application& app, TxSampler& sampler) const
-{
-    populateAccounts(app, mNumberOfAccounts, sampler);
-}
-
-void
-Benchmark::BenchmarkBuilder::populateAccounts(
-    Application& app, size_t size, TxSampler& sampler) const
+populateAccounts(
+    Application& app, size_t size, TxSampler& sampler)
 {
     for (size_t accountsLeft = size, batchSize = size; accountsLeft > 0;
          accountsLeft -= batchSize)
@@ -215,14 +180,13 @@ Benchmark::BenchmarkBuilder::populateAccounts(
 }
 
 void
-Benchmark::BenchmarkBuilder::createAccountsDirectly(
+createAccountsDirectly(
     Application& app,
-    std::vector<LoadGenerator::AccountInfoPtr>& createdAccounts) const
+    std::vector<LoadGenerator::AccountInfoPtr>& createdAccounts)
 {
     soci::transaction sqlTx(app.getDatabase().getSession());
 
     auto ledger = app.getLedgerManager().getLedgerNum();
-
     int64_t balanceDiff = 0;
     std::vector<LedgerEntry> live;
     std::transform(
@@ -248,6 +212,44 @@ Benchmark::BenchmarkBuilder::createAccountsDirectly(
     auto liveEntries = delta.getLiveEntries();
     live.insert(live.end(), liveEntries.begin(), liveEntries.end());
     app.getBucketManager().addBatch(app, ledger, live, {});
+}
+
+std::unique_ptr<Benchmark>
+Benchmark::BenchmarkBuilder::createBenchmark(Application& app) const
+{
+    auto sampler = make_unique<TxSampler>(mNetworkID);
+    if (mPopulate)
+    {
+        populateAccounts(app, mNumberOfAccounts, *sampler);
+    }
+    if (mInitialize)
+    {
+        sampler->initialize(app, mNumberOfAccounts);
+    }
+    if (mLoadAccounts)
+    {
+        sampler->loadAccounts(app);
+    }
+
+    struct BenchmarkExt : Benchmark
+    {
+        BenchmarkExt(medida::MetricsRegistry& registry, uint32_t txRate,
+                     std::unique_ptr<TxSampler> sampler)
+            : Benchmark(registry, txRate, std::move(sampler))
+        {
+        }
+    };
+    return make_unique<BenchmarkExt>(
+        app.getMetrics(), mTxRate,
+        std::move(sampler));
+}
+
+std::unique_ptr<TxSampler>
+Benchmark::BenchmarkBuilder::createSampler(Application& app)
+{
+    auto sampler = make_unique<TxSampler>(mNetworkID);
+    sampler->initialize(app, mNumberOfAccounts);
+    return sampler;
 }
 
 TxSampler::TxSampler(Hash const& networkID)
@@ -277,7 +279,7 @@ TxSampler::createTransaction(size_t size)
     {
         result->mTxs.push_back(LoadGenerator::createRandomTransaction(0.5));
     }
-    return std::move(result);
+    return result;
 }
 
 std::vector<LoadGenerator::AccountInfoPtr>
@@ -291,14 +293,15 @@ TxSampler::initialize(Application& app, size_t numberOfAccounts)
 {
     LOG(INFO) << "Initializing benchmark";
 
-    if (mAccounts.empty())
-    {
-        mAccounts = LoadGenerator::createAccounts(numberOfAccounts);
-        loadAccounts(app, mAccounts);
-    }
     mRandomIterator = shuffleAccounts(mAccounts);
 
     LOG(INFO) << "Benchmark initialized";
+}
+
+void
+TxSampler::loadAccounts(Application& app)
+{
+    LoadGenerator::loadAccounts(app, mAccounts);
 }
 
 LoadGenerator::AccountInfoPtr
@@ -324,34 +327,43 @@ TxSampler::shuffleAccounts(
 }
 
 void
-BenchmarkExecutor::executeBenchmark(
-    Application& app, Benchmark::BenchmarkBuilder& benchmarkBuilder,
+BenchmarkExecutor::executeBenchmark(Application& app,
     std::chrono::seconds testDuration,
+    uint32_t txRate,
     std::function<void(Benchmark::Metrics)> stopCallback)
 {
+    if (!mBenchmark)
+    {
+        return;
+    }
+    mBenchmark->setTxRate(txRate);
+
     if (!mLoadTimer)
     {
         mLoadTimer = make_unique<VirtualTimer>(app.getClock());
     }
     mLoadTimer->expires_from_now(std::chrono::milliseconds{1});
-    mLoadTimer->async_wait([this, &app, benchmarkBuilder, testDuration,
+    mLoadTimer->async_wait([this, &app, testDuration,
                       stopCallback](asio::error_code const& error) {
 
-        std::shared_ptr<Benchmark> benchmark{
-            benchmarkBuilder.createBenchmark(app)};
-        benchmark->startBenchmark(app);
+        mBenchmark->startBenchmark(app);
 
-        auto stopProcedure = [benchmark,
-                              stopCallback](asio::error_code const& error) {
+        auto stopProcedure = [this, stopCallback](asio::error_code const& error) {
 
-            auto metrics = benchmark->stopBenchmark();
+            auto metrics = mBenchmark->stopBenchmark();
             stopCallback(metrics);
 
-            LOG(INFO) << "Benchmark complete.";
+            LOG(INFO) << "Benchmark complete";
         };
 
         mLoadTimer->expires_from_now(testDuration);
         mLoadTimer->async_wait(stopProcedure);
     });
+}
+
+void
+BenchmarkExecutor::setBenchmark(std::unique_ptr<Benchmark> benchmark)
+{
+    mBenchmark = std::move(benchmark);
 }
 }

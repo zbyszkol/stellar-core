@@ -18,6 +18,8 @@
 namespace stellar
 {
 
+static const size_t MAXIMAL_NUMBER_OF_ACCOUNTS_IN_BATCH = 10000;
+
 class TxSampler;
 
 class Benchmark
@@ -38,6 +40,7 @@ class Benchmark
     ~Benchmark();
     void startBenchmark(Application& app);
     Metrics stopBenchmark();
+    void setTxRate(uint32_t txRate);
 
   protected:
     Benchmark(medida::MetricsRegistry& registry, uint32_t txRate,
@@ -47,7 +50,6 @@ class Benchmark
     bool generateLoadForBenchmark(Application& app);
     void scheduleLoad(Application& app,
                       std::chrono::milliseconds stepTime);
-    Benchmark::Metrics initializeMetrics(medida::MetricsRegistry& registry);
 
     bool mIsRunning;
     uint32_t mTxRate;
@@ -55,9 +57,14 @@ class Benchmark
     std::unique_ptr<medida::TimerContext> mBenchmarkTimeContext;
     std::unique_ptr<VirtualTimer> mLoadTimer;
     std::unique_ptr<TxSampler> mSampler;
-
-    static const size_t MAXIMAL_NUMBER_OF_ACCOUNTS_IN_BATCH;
 };
+
+void populateAccounts(Application& app, size_t n,
+                      TxSampler& sampler);
+
+void createAccountsDirectly(
+    Application& app,
+    std::vector<LoadGenerator::AccountInfoPtr>& accounts);
 
 class Benchmark::BenchmarkBuilder
 {
@@ -66,24 +73,18 @@ class Benchmark::BenchmarkBuilder
     BenchmarkBuilder& setNumberOfInitialAccounts(uint32_t accounts);
     BenchmarkBuilder& setTxRate(uint32_t txRate);
     BenchmarkBuilder& initializeBenchmark();
+    BenchmarkBuilder& loadAccounts();
     BenchmarkBuilder& populateBenchmarkData();
     std::unique_ptr<Benchmark> createBenchmark(Application& app) const;
     std::unique_ptr<TxSampler> createSampler(Application& app);
 
   private:
-    void prepareBenchmark(Application& app,
-                          TxSampler& sampler) const;
-    void populateAccounts(Application& app, size_t n,
-                          TxSampler& sampler) const;
-    void createAccountsDirectly(
-        Application& app,
-        std::vector<LoadGenerator::AccountInfoPtr>& accounts) const;
-
     bool mInitialize;
     bool mPopulate;
     uint32_t mTxRate;
     uint32_t mNumberOfAccounts;
     Hash mNetworkID;
+    bool mLoadAccounts;
 };
 
 class TxSampler : private LoadGenerator
@@ -92,11 +93,12 @@ class TxSampler : private LoadGenerator
     class Tx;
 
     TxSampler(Hash const& networkID);
+    void initialize(Application& app, size_t numberOfAccounts);
+    void loadAccounts(Application& app);
     std::unique_ptr<Tx> createTransaction(size_t size);
+    std::vector<LoadGenerator::AccountInfoPtr> createAccounts(size_t batchSize);
 
   private:
-    void initialize(Application& app, size_t numberOfAccounts);
-    std::vector<LoadGenerator::AccountInfoPtr> createAccounts(size_t batchSize);
     virtual LoadGenerator::AccountInfoPtr
     pickRandomAccount(LoadGenerator::AccountInfoPtr tryToAvoid,
                       uint32_t ledgerNum) override;
@@ -122,48 +124,46 @@ class BenchmarkExecutor
 {
   public:
     void executeBenchmark(Application& app,
-                          Benchmark::BenchmarkBuilder& benchmarkBuilder,
                           std::chrono::seconds testDuration,
+                          uint32_t txRate,
                           std::function<void(Benchmark::Metrics)> stopCallback);
+    void setBenchmark(std::unique_ptr<Benchmark> benchmark);
 
   private:
     std::unique_ptr<VirtualTimer> mLoadTimer;
+    std::unique_ptr<Benchmark> mBenchmark;
 };
 
-class BenchmarkReporter
+template <typename Stream>
+void
+reportBenchmark(Benchmark::Metrics const& metrics,
+                medida::MetricsRegistry& metricsRegistry, Stream& str)
 {
-public:
-    template <typename Stream>
-    void
-    reportBenchmark(Benchmark::Metrics const& metrics,
-                    medida::MetricsRegistry& metricsRegistry, Stream& str)
+    struct ReportProcessor : medida::MetricProcessor
     {
-        struct ReportProcessor : medida::MetricProcessor
-        {
-            virtual void
-            Process(medida::Timer& timer) override
+        virtual void
+        Process(medida::Timer& timer) override
             {
                 count = timer.count();
             }
 
-            std::uint64_t count;
-        };
-        auto externalizedTxs =
-            metricsRegistry.GetAllMetrics()[{"ledger", "transaction", "apply"}];
-        ReportProcessor processor;
-        externalizedTxs->Process(processor);
-        auto txsExternalized = processor.count;
+        std::uint64_t count;
+    };
+    auto externalizedTxs =
+        metricsRegistry.GetAllMetrics()[{"ledger", "transaction", "apply"}];
+    ReportProcessor processor;
+    externalizedTxs->Process(processor);
+    auto txsExternalized = processor.count;
 
-        using std::endl;
-        str << endl
-            << "Benchmark metrics:" << endl
-            << "  time spent: " << metrics.mBenchmarkTimer.sum()
-            << " milliseconds" << endl
-            << "  txs submitted: " << metrics.mTxsCount.count() << endl
-            << "  txs externalized: " << txsExternalized << endl;
+    using std::endl;
+    str << endl
+        << "Benchmark metrics:" << endl
+        << "  time spent: " << metrics.mBenchmarkTimer.sum()
+        << " milliseconds" << endl
+        << "  txs submitted: " << metrics.mTxsCount.count() << endl
+        << "  txs externalized: " << txsExternalized << endl;
 
-        medida::reporting::JsonReporter jr(metricsRegistry);
-        str << jr.Report() << endl;
-    }
-};
+    medida::reporting::JsonReporter jr(metricsRegistry);
+    str << jr.Report() << endl;
+}
 }

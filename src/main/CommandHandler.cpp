@@ -415,7 +415,6 @@ CommandHandler::benchmark(std::string const& params, std::string& retStr)
     }
 
     uint32 createAccounts = 0;
-    uint32_t nAccounts = 1000000;
     uint32_t txRate = 1000;
     uint32_t duration = 60 * 10;
 
@@ -432,18 +431,14 @@ CommandHandler::benchmark(std::string const& params, std::string& retStr)
     if (createAccounts > 0)
     {
         Benchmark::BenchmarkBuilder builder(mApp.getNetworkID());
-        builder.setNumberOfInitialAccounts(createAccounts)
+        auto benchmark = builder.setNumberOfInitialAccounts(createAccounts)
             .populateBenchmarkData()
+            .loadAccounts()
+            .initializeBenchmark()
             .createBenchmark(mApp);
+        mApp.getBenchmarkExecutor().setBenchmark(std::move(benchmark));
 
         retStr = fmt::format("{{\"createdAccounts\": {:d}}}", createAccounts);
-        return;
-    }
-
-    if (!parseNumParam(map, "accounts", nAccounts, retStr,
-                       Requirement::OPTIONAL_REQ))
-    {
-        retStr = "Invalid value for the parameter 'accounts'";
         return;
     }
 
@@ -467,19 +462,14 @@ CommandHandler::benchmark(std::string const& params, std::string& retStr)
         mApp.getMetrics()
             .NewMeter({"benchmark", "run", "complete"}, "run")
             .Mark();
-        BenchmarkReporter().reportBenchmark(metrics, mApp.getMetrics(),
-                                            LOG(INFO));
+        reportBenchmark(metrics, mApp.getMetrics(), LOG(INFO));
     };
-    Benchmark::BenchmarkBuilder builder(mApp.getNetworkID());
-    builder.setNumberOfInitialAccounts(nAccounts)
-        .setTxRate(txRate)
-        .initializeBenchmark();
     mApp.getBenchmarkExecutor().executeBenchmark(
-        mApp, builder, std::chrono::seconds{duration}, stopCallback);
+        mApp, std::chrono::seconds{duration}, txRate, stopCallback);
 
-    retStr = fmt::format("{{ \"Benchmark\": {{ \"accounts\": {:d}, \"txRate\": "
+    retStr = fmt::format("{{ \"Benchmark\": {{ \"txRate\": "
                          "{:d}, \"seconds\": {:d} }} }}",
-                         nAccounts, txRate, duration);
+                         txRate, duration);
 }
 
 void
