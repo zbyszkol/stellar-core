@@ -414,21 +414,21 @@ CommandHandler::benchmark(std::string const& params, std::string& retStr)
         return;
     }
 
-    uint32 createAccounts = 10000;
+    uint32 createAccounts = 0;
     uint32_t txRate = 200;
     uint32_t duration = 60;
 
     std::map<std::string, std::string> map;
     http::server::server::parseParams(params, map);
 
-    if (map.find("preparebenchmark"))
+    if (!parseNumParam(map, "preparebenchmark", createAccounts, retStr,
+                       Requirement::OPTIONAL_REQ))
     {
-        if (!parseNumParam(map, "preparebenchmark", createAccounts, retStr,
-                           Requirement::OPTIONAL_REQ))
-        {
-            retStr = "Invalid value for the parameter 'preparebenchmark'";
-            return;
-        }
+        retStr = "Invalid value for the parameter 'preparebenchmark'";
+        return;
+    }
+    if (createAccounts > 0)
+    {
         Benchmark::BenchmarkBuilder builder(mApp.getNetworkID());
         auto benchmark = builder.setNumberOfInitialAccounts(createAccounts)
             .populateBenchmarkData()

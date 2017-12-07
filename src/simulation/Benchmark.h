@@ -57,6 +57,7 @@ class Benchmark
     std::unique_ptr<medida::TimerContext> mBenchmarkTimeContext;
     std::unique_ptr<VirtualTimer> mLoadTimer;
     std::unique_ptr<TxSampler> mSampler;
+    static const uint32_t STEP_MSECS;
 };
 
 void populateAccounts(Application& app, size_t n,

@@ -20,13 +20,15 @@
 namespace stellar
 {
 
+const uint32_t Benchmark::STEP_MSECS = 100;
+
 Benchmark::Benchmark(medida::MetricsRegistry& registry, uint32_t txRate,
                      std::unique_ptr<TxSampler> sampler)
     : mIsRunning(false)
-    , mTxRate(txRate)
     , mMetrics(Benchmark::Metrics(registry))
     , mSampler(std::move(sampler))
 {
+    setTxRate(txRate);
 }
 
 Benchmark::~Benchmark()
@@ -48,7 +50,7 @@ Benchmark::startBenchmark(Application& app)
     mBenchmarkTimeContext =
         make_unique<medida::TimerContext>(mMetrics.mBenchmarkTimer.TimeScope());
     scheduleLoad(app,
-                 std::chrono::milliseconds{LoadGenerator::STEP_MSECS});
+                 std::chrono::milliseconds{STEP_MSECS});
 }
 
 Benchmark::Metrics::Metrics(medida::MetricsRegistry& registry)
@@ -74,7 +76,7 @@ Benchmark::stopBenchmark()
 void
 Benchmark::setTxRate(uint32_t txRate)
 {
-    mTxRate = txRate;
+    mTxRate = txRate * STEP_MSECS / 1000;
 }
 
 bool
@@ -335,6 +337,7 @@ BenchmarkExecutor::executeBenchmark(Application& app,
 {
     if (!mBenchmark)
     {
+        LOG(INFO) << "Benchmark was not initialized - benchmark's execution stopped";
         return;
     }
     mBenchmark->setTxRate(txRate);
