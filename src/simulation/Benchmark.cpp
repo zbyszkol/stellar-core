@@ -174,8 +174,7 @@ createAccountsDirectly(
     int64_t balanceDiff = 0;
     std::vector<LedgerEntry> live;
     std::transform(
-        createdStart, createdEnd,
-        std::back_inserter(live),
+        createdStart, createdEnd, std::back_inserter(live),
         [&app, &balanceDiff](LoadGenerator::AccountInfoPtr const& account) {
             AccountFrame aFrame = account->createDirectly(app);
             balanceDiff += aFrame.getBalance();
@@ -199,11 +198,13 @@ createAccountsDirectly(
 }
 
 void
-populateAccounts(Application& app,
-                 std::vector<LoadGenerator::AccountInfoPtr>::const_iterator createdStart,
-                 std::vector<LoadGenerator::AccountInfoPtr>::const_iterator createdEnd)
+populateAccounts(
+    Application& app,
+    std::vector<LoadGenerator::AccountInfoPtr>::const_iterator createdStart,
+    std::vector<LoadGenerator::AccountInfoPtr>::const_iterator createdEnd)
 {
-    std::vector<LoadGenerator::AccountInfoPtr>::const_iterator start = createdStart;
+    std::vector<LoadGenerator::AccountInfoPtr>::const_iterator start =
+        createdStart;
     std::vector<LoadGenerator::AccountInfoPtr>::const_iterator end = createdEnd;
     size_t accountsLeft = std::distance(createdStart, createdEnd);
     size_t batchSize = accountsLeft;
@@ -238,13 +239,15 @@ std::unique_ptr<TxSampler>
 Benchmark::BenchmarkBuilder::createSampler(Application& app)
 {
     auto sampler = make_unique<TxSampler>(mNetworkID);
-    sampler->createAccounts(mNumberOfAccounts, app.getLedgerManager().getLedgerNum());
+    sampler->createAccounts(mNumberOfAccounts,
+                            app.getLedgerManager().getLedgerNum());
     if (mPopulate && !mAlreadyPopulated)
     {
         // root account should be first on that list
         // omit the root account
         auto const& createdAccounts = sampler->getAccounts();
-        populateAccounts(app, createdAccounts.cbegin() + 1, createdAccounts.cend());
+        populateAccounts(app, createdAccounts.cbegin() + 1,
+                         createdAccounts.cend());
         mAlreadyPopulated = true;
     }
     if (mLoadAccounts)

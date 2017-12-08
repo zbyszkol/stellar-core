@@ -308,7 +308,8 @@ CommandHandler::fileNotFound(std::string const& params, std::string& retStr)
         "ARTIFICIALLY_GENERATE_LOAD_FOR_TESTING set to true;"
         "benchmark's parameters:<br/>"
         "preparebenchmark=N populates database with N artificial accounts<br/>"
-        "txrate=R is number of transactions per second submitted by benchmark<br/>"
+        "txrate=R is number of transactions per second submitted by "
+        "benchmark<br/>"
         "duration=T is time in seconds for benchmark's execution"
         "</p>"
 

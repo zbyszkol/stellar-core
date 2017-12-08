@@ -153,7 +153,8 @@ reportBenchmark(Benchmark::Metrics const& metrics,
         << "{" << endl
         << "\"benchmark metrics\": {" << endl
         << "  \"time spent\": " << metrics.mBenchmarkTimer.sum() << "," << endl
-        << "  \"time unit\": " << "\"milliseconds\"," << endl
+        << "  \"time unit\": "
+        << "\"milliseconds\"," << endl
         << "  \"txs submitted\": " << metrics.mTxsCount.count() << "," << endl
         << "  \"txs externalized\": " << txsExternalized << endl
         << "}" << endl

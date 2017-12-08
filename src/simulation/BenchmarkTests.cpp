@@ -45,14 +45,12 @@ TEST_CASE("stellar-core's benchmark", "[benchmark][execute][hide]")
     app->start();
 
     Benchmark::BenchmarkBuilder builder{app->getNetworkID()};
-    builder.setNumberOfInitialAccounts(nAccounts)
-        .populateBenchmarkData();
+    builder.setNumberOfInitialAccounts(nAccounts).populateBenchmarkData();
     bool done = false;
     BenchmarkExecutor executor;
     executor.setBenchmark(builder.createBenchmark(*app));
     executor.executeBenchmark(
-        *app, testDuration, txRate,
-        [&done, app](Benchmark::Metrics metrics) {
+        *app, testDuration, txRate, [&done, app](Benchmark::Metrics metrics) {
             done = true;
             reportBenchmark(metrics, app->getMetrics(), LOG(INFO));
         });
