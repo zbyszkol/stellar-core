@@ -29,8 +29,6 @@
 
 #include "test/TestAccount.h"
 #include "test/TxTests.h"
-#include <functional>
-#include <memory>
 #include <regex>
 
 using namespace stellar::txtest;
@@ -305,9 +303,13 @@ CommandHandler::fileNotFound(std::string const& params, std::string& retStr)
         "</p><p><h1> /unban?node=NODE_ID</h1>"
         "remove ban for PEER_ID"
         "</p><p><h1> /benchmark[?preparebenchmark=N | "
-        "accounts=N&txrate=R&duration=T]</h1>"
+        "txrate=R&duration=T]</h1>"
         "start benchmark of stellar-core; must be used with "
-        "ARTIFICIALLY_GENERATE_LOAD_FOR_TESTING set to true"
+        "ARTIFICIALLY_GENERATE_LOAD_FOR_TESTING set to true;"
+        "benchmark's parameters:<br/>"
+        "preparebenchmark=N populates database with N artificial accounts<br/>"
+        "txrate=R is number of transactions per second submitted by benchmark<br/>"
+        "duration=T is time in seconds for benchmark's execution"
         "</p>"
 
         "<br>";
