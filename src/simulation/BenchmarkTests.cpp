@@ -24,8 +24,6 @@ TEST_CASE("stellar-core benchmark's initialization",
 
     Benchmark::BenchmarkBuilder builder{app->getNetworkID()};
     builder.setNumberOfInitialAccounts(nAccounts).populateBenchmarkData();
-    std::unique_ptr<Benchmark> benchmark = builder.createBenchmark(*app);
-    REQUIRE(benchmark);
     std::unique_ptr<TxSampler> sampler = builder.createSampler(*app);
     auto tx = sampler->createTransaction(nAccounts);
     REQUIRE(tx);

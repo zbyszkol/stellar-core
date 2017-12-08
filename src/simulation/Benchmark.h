@@ -69,11 +69,12 @@ class Benchmark::BenchmarkBuilder
     BenchmarkBuilder& setTxRate(uint32_t txRate);
     BenchmarkBuilder& loadAccounts();
     BenchmarkBuilder& populateBenchmarkData();
-    std::unique_ptr<Benchmark> createBenchmark(Application& app) const;
-    std::unique_ptr<TxSampler> createSampler(Application& app) const;
+    std::unique_ptr<Benchmark> createBenchmark(Application& app);
+    std::unique_ptr<TxSampler> createSampler(Application& app);
 
   private:
     bool mPopulate;
+    bool mAlreadyPopulated;
     uint32_t mTxRate;
     uint32_t mNumberOfAccounts;
     Hash mNetworkID;
@@ -91,6 +92,7 @@ class TxSampler : private LoadGenerator
     std::unique_ptr<Tx> createTransaction(size_t size);
     std::vector<LoadGenerator::AccountInfoPtr>
     createAccounts(size_t batchSize, uint32_t ledgerNum);
+    std::vector<LoadGenerator::AccountInfoPtr> const& getAccounts();
 
   private:
     virtual LoadGenerator::AccountInfoPtr
@@ -100,7 +102,6 @@ class TxSampler : private LoadGenerator
     shuffleAccounts(std::vector<LoadGenerator::AccountInfoPtr>& accounts);
 
     std::vector<LoadGenerator::AccountInfoPtr>::iterator mRandomIterator;
-    friend class Benchmark::BenchmarkBuilder;
 };
 
 class TxSampler::Tx

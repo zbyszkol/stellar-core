@@ -126,6 +126,7 @@ Benchmark::scheduleLoad(Application& app, std::chrono::milliseconds stepTime)
 
 Benchmark::BenchmarkBuilder::BenchmarkBuilder(Hash const& networkID)
     : mPopulate(false)
+    , mAlreadyPopulated(false)
     , mTxRate(0)
     , mNumberOfAccounts(0)
     , mNetworkID(networkID)
@@ -217,7 +218,7 @@ populateAccounts(Application& app,
 }
 
 std::unique_ptr<Benchmark>
-Benchmark::BenchmarkBuilder::createBenchmark(Application& app) const
+Benchmark::BenchmarkBuilder::createBenchmark(Application& app)
 {
     std::unique_ptr<TxSampler> sampler = createSampler(app);
 
@@ -234,13 +235,17 @@ Benchmark::BenchmarkBuilder::createBenchmark(Application& app) const
 }
 
 std::unique_ptr<TxSampler>
-Benchmark::BenchmarkBuilder::createSampler(Application& app) const
+Benchmark::BenchmarkBuilder::createSampler(Application& app)
 {
     auto sampler = make_unique<TxSampler>(mNetworkID);
-    auto createdAccounts = sampler->createAccounts(mNumberOfAccounts, app.getLedgerManager().getLedgerNum());
-    if (mPopulate)
+    sampler->createAccounts(mNumberOfAccounts, app.getLedgerManager().getLedgerNum());
+    if (mPopulate && !mAlreadyPopulated)
     {
-        populateAccounts(app, sampler->mAccounts.cbegin() + 1, sampler->mAccounts.cend());
+        // root account should be first on that list
+        // omit the root account
+        auto const& createdAccounts = sampler->getAccounts();
+        populateAccounts(app, createdAccounts.cbegin() + 1, createdAccounts.cend());
+        mAlreadyPopulated = true;
     }
     if (mLoadAccounts)
     {
@@ -283,6 +288,12 @@ std::vector<LoadGenerator::AccountInfoPtr>
 TxSampler::createAccounts(size_t batchSize, uint32_t ledgerNum)
 {
     return LoadGenerator::createAccounts(batchSize, ledgerNum);
+}
+
+std::vector<LoadGenerator::AccountInfoPtr> const&
+TxSampler::getAccounts()
+{
+    return mAccounts;
 }
 
 void
