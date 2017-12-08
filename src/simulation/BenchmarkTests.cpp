@@ -52,7 +52,10 @@ TEST_CASE("stellar-core's benchmark", "[benchmark][execute][hide]")
     executor.setBenchmark(builder.createBenchmark(*app));
     executor.executeBenchmark(
         *app, testDuration, txRate,
-        [&done](Benchmark::Metrics metrics) { done = true; });
+        [&done, app](Benchmark::Metrics metrics) {
+            done = true;
+            reportBenchmark(metrics, app->getMetrics(), LOG(INFO));
+        });
     while (!done)
     {
         clock.crank();

@@ -150,11 +150,14 @@ reportBenchmark(Benchmark::Metrics const& metrics,
 
     using std::endl;
     str << endl
-        << "Benchmark metrics:" << endl
-        << "  time spent: " << metrics.mBenchmarkTimer.sum() << " milliseconds"
-        << endl
-        << "  txs submitted: " << metrics.mTxsCount.count() << endl
-        << "  txs externalized: " << txsExternalized << endl;
+        << "{" << endl
+        << "\"benchmark metrics\": {" << endl
+        << "  \"time spent\": " << metrics.mBenchmarkTimer.sum() << "," << endl
+        << "  \"time unit\": " << "\"milliseconds\"," << endl
+        << "  \"txs submitted\": " << metrics.mTxsCount.count() << "," << endl
+        << "  \"txs externalized\": " << txsExternalized << endl
+        << "}" << endl
+        << "}" << endl;
 
     medida::reporting::JsonReporter jr(metricsRegistry);
     str << jr.Report() << endl;
