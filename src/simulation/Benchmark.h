@@ -40,14 +40,12 @@ class Benchmark
         friend class Benchmark;
     };
 
+    Benchmark(medida::MetricsRegistry& registry, uint32_t txRate,
+              std::unique_ptr<TxSampler> sampler);
     ~Benchmark();
     void startBenchmark(Application& app);
     Metrics stopBenchmark();
     void setTxRate(uint32_t txRate);
-
-  protected:
-    Benchmark(medida::MetricsRegistry& registry, uint32_t txRate,
-              std::unique_ptr<TxSampler> sampler);
 
   private:
     bool generateLoadForBenchmark(Application& app);

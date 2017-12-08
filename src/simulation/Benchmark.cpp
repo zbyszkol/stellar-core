@@ -222,16 +222,7 @@ std::unique_ptr<Benchmark>
 Benchmark::BenchmarkBuilder::createBenchmark(Application& app)
 {
     std::unique_ptr<TxSampler> sampler = createSampler(app);
-
-    struct BenchmarkExt : Benchmark
-    {
-        BenchmarkExt(medida::MetricsRegistry& registry, uint32_t txRate,
-                     std::unique_ptr<TxSampler> sampler)
-            : Benchmark(registry, txRate, std::move(sampler))
-        {
-        }
-    };
-    return make_unique<BenchmarkExt>(app.getMetrics(), mTxRate,
+    return make_unique<Benchmark>(app.getMetrics(), mTxRate,
                                      std::move(sampler));
 }
 
